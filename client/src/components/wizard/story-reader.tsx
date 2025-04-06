@@ -208,6 +208,19 @@ const StoryReader = ({ storyId, childId, textOnly = false }: StoryReaderProps) =
       setProgress(initialProgress);
     }
   }, [story, currentChapter]);
+  
+  // Auto-generate illustrations when story loads (if not in text-only mode)
+  useEffect(() => {
+    if (story && !textOnly && !generateAllIllustrationsMutation.isPending) {
+      // Check if any chapters need illustrations
+      const needsIllustrations = story.chapters?.some(chapter => !chapter.imageUrl);
+      
+      if (needsIllustrations) {
+        console.log("Iniciando geração automática de ilustrações para todos os capítulos");
+        generateAllIllustrationsMutation.mutate();
+      }
+    }
+  }, [story, textOnly]);
 
   // Navigation between chapters
   const goToNextChapter = () => {
@@ -301,57 +314,10 @@ const StoryReader = ({ storyId, childId, textOnly = false }: StoryReaderProps) =
                   {currentChapterContent.title}
                 </h2>
                 {!textOnly && (
-                  <div className="flex space-x-2">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="icon"
-                            onClick={generateCurrentChapterImage}
-                            disabled={imageGenerating || generateImageMutation.isPending}
-                          >
-                            {imageGenerating || generateImageMutation.isPending ? (
-                              <RefreshCw className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Image className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Gerar ilustração para este capítulo</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => generateAllIllustrationsMutation.mutate()}
-                            disabled={generateAllIllustrationsMutation.isPending}
-                            className="text-xs"
-                          >
-                            {generateAllIllustrationsMutation.isPending ? (
-                              <>
-                                <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
-                                Gerando...
-                              </>
-                            ) : (
-                              <>
-                                <Image className="mr-1 h-3 w-3" />
-                                Gerar todas as ilustrações
-                              </>
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Gerar ilustrações para todos os capítulos da história</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                  <div className="flex-none">
+                    <Badge variant="outline" className="text-xs flex items-center gap-1">
+                      <Image className="h-3 w-3" /> Ilustrações automáticas
+                    </Badge>
                   </div>
                 )}
               </div>

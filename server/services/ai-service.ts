@@ -300,20 +300,32 @@ export async function generateCharacterImage(
     "animal da floresta";
     
   const characterPrompt = `
-    Quero uma ilustração de personagem para livro infantil do personagem "${character}", que é um ${characterType}.
+    PERSONAGEM: "${character}" (${characterType})
     
-    ESPECIFICAÇÕES VISUAIS OBRIGATÓRIAS:
-    - Estilo: Cartoon infantil com contornos grossos e pretos bem definidos (estilo "cel shading")
-    - Pose: Corpo inteiro, postura expressiva e dinâmica
-    - Visual: ${options.characterStyle || "cute"}, extremamente fofo e simpático
-    - Cores: cores vibrantes e saturadas
-    - Fundo: ${options.backgroundColor || "claro e sólido (sem gradientes)"}, minimalista para destacar o personagem
-    - Proporções: Cabeça grande (estilo cartoon), olhos muito expressivos e grandes
+    ESTILO VISUAL OBRIGATÓRIO:
+    - ARTE: Cartoon infantil 2D com linhas GROSSAS e PRETAS bem definidas 
+    - POSE: Corpo inteiro na posição frontal ou 3/4, expressão clara e alegre
+    - VISUAL: ${options.characterStyle || "cute"}, extremamente fofo e amigável para crianças
+    - CORES: Paleta limitada (máximo 4 cores) com cores vivas e contrastantes
+    - FUNDO: ${options.backgroundColor || "sólido com cor clara"}, sem detalhes ou elementos
+    - PROPORÇÕES: Cabeça grande (40% do corpo), olhos muito expressivos e grandes
     
-    O personagem deve ser desenhado no estilo de desenho animado para crianças da faixa etária ${options.ageGroup || "6-8"} anos.
-    Deve ser EXTREMAMENTE cartunizado - nada de realismo ou fotorrealismo ou arte complexa.
-    Use um estilo de desenho BIDIMENSIONAL com cores planas, sem sombreamento complexo.
-    Certifique-se que o personagem tenha um rosto MUITO expressivo e amigável.
+    CARACTERÍSTICAS MANDATÓRIAS:
+    - LINHAS: Contornos MUITO GROSSOS e pretos que definem claramente o personagem
+    - CORES: Escolha 2-3 cores PRINCIPAIS que serão constantes para este personagem
+    - SÍMBOLOS: Adicione 1-2 elementos visuais únicos que identifiquem este personagem
+    - DISTINÇÃO: Crie características visuais MEMORÁVEIS que serão mantidas em todas as ilustrações
+    - CONSISTÊNCIA: Este design será usado como referência para TODAS as aparições futuras
+    
+    DIRETRIZES CRÍTICAS:
+    - PÚBLICO: Arte para crianças de ${options.ageGroup || "6-8"} anos
+    - ESTILO: Extremamente simplificado e cartunizado - NADA de realismo
+    - TÉCNICA: Desenho 2D com cores planas e sólidas, sem gradientes ou sombras complexas
+    - EXPRESSÃO: Rosto MUITO expressivo, olhos grandes e expressão amigável
+    - LINHA ÚNICA: Use apenas uma linha grossa para contornos (não use linhas finas ou duplas)
+    
+    ESTE PERSONAGEM SERÁ USADO REPETIDAMENTE EM MÚLTIPLAS ILUSTRAÇÕES.
+    PREFIRA SIMPLICIDADE E MEMORABILIDADE EM VEZ DE DETALHES COMPLEXOS.
   `;
   
   return generateImage(characterPrompt, {
@@ -393,38 +405,44 @@ export async function generateChapterImage(
     `;
   }
 
-  // Prompt mais estruturado para limitar elementos da cena e garantir relevância
+  // Prompt completamente reestruturado para garantir relevância máxima e consistência de personagens
   const scenePrompt = `
-    Ilustração de cena para livro infantil do capítulo "${chapterTitle}".
+    ILUSTRAÇÃO INFANTIL PARA CAPÍTULO: "${chapterTitle}"
     
-    ELEMENTOS A INCLUIR (SOMENTE ESTES, NÃO ADICIONE OUTROS ELEMENTOS):
+    CONTEXTO DO CAPÍTULO:
+    ${chapterContent.substring(0, 300)}...
+    
+    ELEMENTOS OBRIGATÓRIOS (APENAS ESTES, NÃO ADICIONE OUTROS):
     - ${keyElements.join("\n    - ")}
     
+    PERSONAGENS PRINCIPAIS (MANTENHA CONSISTÊNCIA VISUAL):
     ${charactersList}
     ${characterDescriptions}
     ${chapterSequenceInfo}
     
-    DIRETRIZES DE QUALIDADE E RELEVÂNCIA (EXTREMAMENTE IMPORTANTES):
-    - A ilustração DEVE se concentrar EXCLUSIVAMENTE nos elementos listados acima.
-    - É EXPRESSAMENTE PROIBIDO adicionar elementos não mencionados no texto do capítulo.
-    - RESTRINGIR-SE aos elementos listados acima é essencial para a qualidade da ilustração.
-    - A ilustração deve ser EXTREMAMENTE simples e clara, com poucos elementos.
-    - Certifique-se que cada elemento da ilustração se relaciona diretamente ao texto.
-    - A cena deve parecer coerente e conectada à história, sem elementos estranhos ou desconexos.
-    - CONSISTÊNCIA VISUAL: Mantenha a mesma aparência dos personagens se aparecerem em múltiplos capítulos.
+    ESTILO VISUAL ESPECÍFICO:
+    - ESTILO: Desenho animado infantil 2D com linhas pretas fortes e bem definidas
+    - CORES: Paleta limitada (4-5 cores) de cores vibrantes, contrastantes e consistentes
+    - TRAÇO: Contornos grossos e pretos que destacam claramente todos os elementos
+    - PROPORÇÕES: Cabeças grandes com olhos expressivos (estilo cartoon infantil)
+    - FUNDO: Extremamente simplificado, sem detalhes desnecessários que distraiam do tema central
     
-    ESPECIFICAÇÕES VISUAIS OBRIGATÓRIAS:
-    - Estilo: Cartoon infantil com contornos grossos e pretos bem definidos
-    - Visual: Extremamente simplificado, limpo, com poucos elementos visuais
-    - Cores: Vibrantes, alegres, paleta limitada (max 5-6 cores)
-    - Fundo: Minimalista, com poucos detalhes, apenas o essencial para a cena
-    - Proporções: Personagens com cabeças grandes e expressões claras e simples
+    REGRAS ESTRITAS DE GERAÇÃO (CRÍTICAS PARA QUALIDADE):
+    1. CONSISTÊNCIA: Os personagens DEVEM manter a mesma aparência física, roupas e cores ao longo de todas as ilustrações
+    2. RELEVÂNCIA: Cada elemento DEVE relacionar-se diretamente ao texto e à temática do capítulo
+    3. SIMPLICIDADE: Use composição limpa com 2-3 elementos principais no máximo
+    4. ADEQUAÇÃO: Arte feita especificamente para crianças de ${options.ageGroup || "6-8"} anos
+    5. COMPOSIÇÃO: Elementos centrais devem ocupar a maior parte da ilustração (70%)
     
-    REQUISITOS CRÍTICOS:
-    - A ilustração deve ser para crianças da faixa etária ${options.ageGroup || "6-8"} anos.
-    - Deve ser EXTREMAMENTE cartunizada - nada de realismo ou fotorrealismo.
-    - Use um estilo de desenho BIDIMENSIONAL com cores planas, sem sombreamento complexo.
-    - A CONSISTÊNCIA com os elementos da história é o fator mais importante para gerar uma boa ilustração.
+    ABSOLUTAMENTE PROIBIDO:
+    - NÃO adicione elementos aleatórios não mencionados no texto
+    - NÃO use estilos realistas ou fotorrealistas em NENHUM elemento
+    - NÃO use sombreamento complexo ou efeitos 3D
+    - NÃO mude a aparência básica dos personagens (cores, roupas, características distintivas)
+    - NÃO crie cenas com muitos detalhes ou elementos secundários
+    
+    A CONSISTÊNCIA VISUAL DOS PERSONAGENS ENTRE TODAS AS ILUSTRAÇÕES É A PRIORIDADE MÁXIMA.
+    PREFIRA ERRAR POR SIMPLICIDADE DO QUE POR COMPLEXIDADE.
   `;
   
   return generateImage(scenePrompt, {
