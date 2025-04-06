@@ -11,7 +11,7 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
-): Promise<any> {
+): Promise<Response> {
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
@@ -22,11 +22,11 @@ export async function apiRequest(
   // For auth endpoints, don't throw on error status codes
   // Instead, let the component handle the response
   if (url === "/api/auth/login" || url === "/api/auth/register") {
-    return res.json();
+    return res;
   }
 
   await throwIfResNotOk(res);
-  return res.json();
+  return res;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -43,8 +43,13 @@ export const getQueryFn: <T>(options: {
       return null;
     }
 
-    await throwIfResNotOk(res);
-    return await res.json();
+    try {
+      await throwIfResNotOk(res);
+      return await res.json();
+    } catch (error) {
+      console.error("Query error:", error);
+      throw error;
+    }
   };
 
 export const queryClient = new QueryClient({

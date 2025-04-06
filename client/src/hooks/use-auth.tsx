@@ -45,10 +45,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: async (credentials: { username: string; password: string }) => {
       const response = await apiRequest("POST", "/api/auth/login", credentials);
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Login failed");
+        let errorMessage = "Login failed";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          console.error("Failed to parse error response:", e);
+        }
+        throw new Error(errorMessage);
       }
-      return response.json();
+      return await response.json();
     },
     onSuccess: () => {
       refetch();
@@ -70,10 +76,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/auth/logout");
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Logout failed");
+        let errorMessage = "Logout failed";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          console.error("Failed to parse error response:", e);
+        }
+        throw new Error(errorMessage);
       }
-      return response.json();
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.clear();
@@ -96,10 +108,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: async (userData: any) => {
       const response = await apiRequest("POST", "/api/auth/register", userData);
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Registration failed");
+        let errorMessage = "Registration failed";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          console.error("Failed to parse error response:", e);
+        }
+        throw new Error(errorMessage);
       }
-      return response.json();
+      return await response.json();
     },
     onSuccess: () => {
       refetch();
