@@ -29,7 +29,7 @@ interface AuthStatus {
 const Header = () => {
   const [location, navigate] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
+
   const { data: authStatus, isLoading } = useQuery<AuthStatus>({
     queryKey: ["/api/auth/status"],
   });
@@ -91,15 +91,15 @@ const Header = () => {
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuLabel>Olá, {authStatus.user?.name}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/parent" className="w-full">
+                <DropdownMenuItem>
+                  <a href="/dashboard/parent" className="w-full">
                     Perfil dos Pais
-                  </Link>
+                  </a>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/subscription/plans" className="w-full">
+                <DropdownMenuItem>
+                  <a href="/subscription/plans" className="w-full">
                     Assinatura
-                  </Link>
+                  </a>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-red-500">
