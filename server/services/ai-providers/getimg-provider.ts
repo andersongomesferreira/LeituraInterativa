@@ -204,12 +204,36 @@ export class GetImgProvider implements AIProvider {
       
       // Process response
       if (data.output && data.output.length > 0) {
+        // Ensure the image URL is valid and not empty
+        const imageUrl = data.output[0].trim();
+        
+        // If URL is empty or invalid, handle as an error
+        if (!imageUrl) {
+          console.error('GetImg.ai returned a success response but with an empty image URL');
+          return {
+            success: false,
+            imageUrl: '',
+            error: 'API returned empty image URL despite successful response'
+          };
+        }
+        
         // If batch processing, return all images
         if (requestBody.samples > 1) {
+          // Filter out any empty URLs
+          const validUrls = data.output.filter((url: string) => url && url.trim().length > 0);
+          
+          if (validUrls.length === 0) {
+            return {
+              success: false,
+              imageUrl: '',
+              error: 'API returned empty image URLs despite successful response'
+            };
+          }
+          
           return {
             success: true,
-            imageUrl: data.output[0], // Primary image
-            alternativeImages: data.output.slice(1), // Additional images
+            imageUrl: validUrls[0], // Primary image
+            alternativeImages: validUrls.slice(1), // Additional images
             metadata: {
               seed: data.meta?.seed || requestBody.seed,
               model: data.meta?.model || requestBody.model,
@@ -221,7 +245,7 @@ export class GetImgProvider implements AIProvider {
         // Single image
         return {
           success: true,
-          imageUrl: data.output[0],
+          imageUrl: imageUrl,
           metadata: {
             seed: data.meta?.seed || requestBody.seed,
             model: data.meta?.model || requestBody.model,

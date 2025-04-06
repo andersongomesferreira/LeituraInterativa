@@ -233,12 +233,24 @@ export class RunwareProvider implements AIProvider {
       
       // Process response - structure may vary based on actual API response
       if (data.images && data.images.length > 0) {
+        // Check if image URLs are valid
+        const validImages = data.images.filter((img: any) => img.url && img.url.trim().length > 0);
+        
+        if (validImages.length === 0) {
+          console.error('Runware returned a success response but with empty image URLs');
+          return {
+            success: false,
+            imageUrl: '',
+            error: 'API returned empty image URLs despite successful response'
+          };
+        }
+        
         // If batch processing, return all images
         if (requestBody.num_outputs > 1) {
           return {
             success: true,
-            imageUrl: data.images[0].url, // Primary image
-            alternativeImages: data.images.slice(1).map((img: any) => img.url), // Additional images
+            imageUrl: validImages[0].url, // Primary image
+            alternativeImages: validImages.slice(1).map((img: any) => img.url), // Additional images
             metadata: {
               seed: data.seed || requestBody.seed,
               providerName: this.name,
@@ -248,9 +260,20 @@ export class RunwareProvider implements AIProvider {
         }
         
         // Single image
+        const imageUrl = validImages[0].url.trim();
+        
+        if (!imageUrl) {
+          console.error('Runware returned a success response but with an empty image URL');
+          return {
+            success: false,
+            imageUrl: '',
+            error: 'API returned empty image URL despite successful response'
+          };
+        }
+        
         return {
           success: true,
-          imageUrl: data.images[0].url,
+          imageUrl: imageUrl,
           metadata: {
             seed: data.seed || requestBody.seed,
             providerName: this.name,
