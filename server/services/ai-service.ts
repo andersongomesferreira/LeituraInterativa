@@ -334,6 +334,9 @@ export async function generateChapterImage(
     backgroundColor?: string;
     characterStyle?: "cute" | "funny" | "heroic";
     ageGroup?: "3-5" | "6-8" | "9-12";
+    storyId?: number; // ID da história para consistência
+    chapterId?: number; // ID/número do capítulo para progressão
+    characterDescriptions?: any[]; // Descrições detalhadas de personagens
   } = {},
   userTier: string = "free"
 ): Promise<GeneratedImage> {
@@ -351,6 +354,45 @@ export async function generateChapterImage(
     ? `Personagens principais na cena: ${characters.join(", ")}.` 
     : "";
   
+  // Verificar se temos descrições de personagens detalhadas
+  let characterDescriptions = '';
+  
+  if (options.characterDescriptions && options.characterDescriptions.length > 0) {
+    // Criar uma seção com descrições detalhadas dos personagens para consistência visual
+    const characterDetailsArray = options.characterDescriptions.map(char => {
+      let details = `- ${char.name}: ${char.appearance || 'Personagem da história'}`;
+      
+      if (char.visualAttributes) {
+        if (char.visualAttributes.colors && char.visualAttributes.colors.length > 0) {
+          details += `\n    Cores principais: ${char.visualAttributes.colors.join(', ')}`;
+        }
+        if (char.visualAttributes.clothing) {
+          details += `\n    Vestimenta: ${char.visualAttributes.clothing}`;
+        }
+        if (char.visualAttributes.distinguishingFeatures && char.visualAttributes.distinguishingFeatures.length > 0) {
+          details += `\n    Características distintas: ${char.visualAttributes.distinguishingFeatures.join(', ')}`;
+        }
+      }
+      
+      return details;
+    });
+    
+    characterDescriptions = `
+    DESCRIÇÕES DETALHADAS DOS PERSONAGENS (MANTENHA CONSISTÊNCIA VISUAL COM ESTAS CARACTERÍSTICAS):
+    ${characterDetailsArray.join('\n')}
+    `;
+  }
+  
+  // Adicionar mensagem sobre progressão da história se for um capítulo específico
+  let chapterSequenceInfo = '';
+  if (options.chapterId !== undefined) {
+    chapterSequenceInfo = `
+    OBSERVAÇÃO SOBRE SEQUÊNCIA DA HISTÓRIA:
+    - Este é o capítulo ${options.chapterId} da história. 
+    - Mantenha a mesma aparência dos personagens e estilo visual de ilustrações anteriores.
+    `;
+  }
+
   // Prompt mais estruturado para limitar elementos da cena e garantir relevância
   const scenePrompt = `
     Ilustração de cena para livro infantil do capítulo "${chapterTitle}".
@@ -359,6 +401,8 @@ export async function generateChapterImage(
     - ${keyElements.join("\n    - ")}
     
     ${charactersList}
+    ${characterDescriptions}
+    ${chapterSequenceInfo}
     
     DIRETRIZES DE QUALIDADE E RELEVÂNCIA (EXTREMAMENTE IMPORTANTES):
     - A ilustração DEVE se concentrar EXCLUSIVAMENTE nos elementos listados acima.
@@ -367,6 +411,7 @@ export async function generateChapterImage(
     - A ilustração deve ser EXTREMAMENTE simples e clara, com poucos elementos.
     - Certifique-se que cada elemento da ilustração se relaciona diretamente ao texto.
     - A cena deve parecer coerente e conectada à história, sem elementos estranhos ou desconexos.
+    - CONSISTÊNCIA VISUAL: Mantenha a mesma aparência dos personagens se aparecerem em múltiplos capítulos.
     
     ESPECIFICAÇÕES VISUAIS OBRIGATÓRIAS:
     - Estilo: Cartoon infantil com contornos grossos e pretos bem definidos

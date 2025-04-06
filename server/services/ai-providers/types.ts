@@ -83,6 +83,22 @@ export interface ImageGenerationParams {
   model?: string;
   ageGroup?: string;
   mood?: string;
+  characterDescriptions?: CharacterDescription[]; // Descrições de personagens para manter consistência
+  storyId?: number; // ID da história para rastreamento de consistência
+  chapterId?: number; // ID do capítulo para progressão
+}
+
+// Descrição de personagem para consistência visual
+export interface CharacterDescription {
+  name: string;
+  appearance: string;
+  visualAttributes?: {
+    colors: string[];
+    clothing?: string;
+    accessories?: string[];
+    distinguishingFeatures?: string[];
+  };
+  previousImages?: string[]; // URLs de imagens anteriores do personagem
 }
 
 // Resultado da geração de imagem
@@ -107,6 +123,7 @@ export interface ProviderRoutingConfig {
     prioritizeResponseTime: boolean; // Priorizar provedores mais rápidos
     prioritizeCost: boolean; // Priorizar provedores mais baratos
     prioritizeQuality: boolean; // Priorizar provedores com melhor qualidade
+    characterConsistency?: boolean; // Priorizar consistência em personagens nas ilustrações
   };
   
   // Políticas de fallback

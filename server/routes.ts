@@ -17,6 +17,19 @@ interface GenerateImageOptions {
   backgroundColor?: string;
   characterStyle?: "cute" | "funny" | "heroic";
   ageGroup?: "3-5" | "6-8" | "9-12";
+  // Novos parâmetros para consistência de personagens
+  storyId?: number;
+  chapterId?: number;
+  characterDescriptions?: Array<{
+    name: string;
+    appearance?: string;
+    visualAttributes?: {
+      colors: string[];
+      clothing?: string;
+      distinguishingFeatures?: string[];
+    };
+    previousImages?: string[];
+  }>;
 }
 import { insertUserSchema, insertChildProfileSchema, insertStorySchema, insertReadingSessionSchema } from "@shared/schema";
 import { z } from "zod";
@@ -371,51 +384,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             console.log(`Iniciando geração automática de ilustrações para história "${story.title}" (ID: ${story.id})...`);
             
+            // Importação dinâmica para evitar problemas de dependência circular
+            const { characterConsistencyService } = await import('./services/character-consistency-service');
+            
             // Buscar personagens para a geração de ilustrações
             const characterNames = charactersData
               .filter(c => c !== undefined)
               .map(c => c!.name);
             
+            // Obter descrições detalhadas dos personagens para manter consistência visual
+            const characterDescriptions = await characterConsistencyService.getCharacterDescriptions(
+              story.id, 
+              characterNames
+            );
+            
             // Configurar opções padrão baseadas na faixa etária da história
             const imageOptions: GenerateImageOptions = {
               style: "cartoon",
               mood: "adventure",
-              ageGroup
+              ageGroup,
+              storyId: story.id,
+              characterDescriptions
             };
             
             // Extrair capítulos 
             const chapters = responseData.chapters;
             
-            // Gerar ilustrações para cada capítulo em paralelo com atraso escalonado
+            // Gerar primeiro capítulo imediatamente para feedback rápido
+            if (chapters.length > 0) {
+              console.log(`Priorizando ilustração para o primeiro capítulo: "${chapters[0].title}"`);
+              
+              try {
+                const firstChapterImage = await generateChapterImage(
+                  chapters[0].title,
+                  chapters[0].content,
+                  characterNames,
+                  {
+                    ...imageOptions,
+                    chapterId: 1
+                  }
+                );
+                
+                chapters[0].imageUrl = firstChapterImage.imageUrl;
+                
+                // Atualizar as descrições dos personagens com base nessa primeira imagem
+                characterConsistencyService.updateCharacterVisuals(story.id, 
+                  characterNames.map(name => ({
+                    name,
+                    description: chapters[0].content,
+                    imageUrl: firstChapterImage.imageUrl
+                  }))
+                );
+              } catch (error) {
+                console.error("Erro ao gerar ilustração para o primeiro capítulo:", error);
+              }
+            }
+            
+            // Gerar ilustrações para os capítulos restantes em paralelo com atraso escalonado
             // Isso permite que o usuário comece a ler enquanto as ilustrações são geradas
-            const illustrationPromises = chapters.map(async (chapter, index) => {
+            const illustrationPromises = chapters.slice(1).map(async (chapter, index) => {
               try {
                 // Pequeno atraso para evitar sobrecarregar a API e dar tempo para o usuário ler
-                // Começamos com o primeiro capítulo imediatamente e atrasamos os outros
-                await new Promise(resolve => setTimeout(resolve, index * 3000));
+                // Capítulos posteriores têm espera progressivamente maior
+                await new Promise(resolve => setTimeout(resolve, (index + 1) * 3000));
                 
-                console.log(`Gerando ilustração automática para capítulo ${index + 1}/${chapters.length}: "${chapter.title}"`);
+                console.log(`Gerando ilustração automática para capítulo ${index + 2}/${chapters.length}: "${chapter.title}"`);
+                
+                // Obter descrições atualizadas dos personagens após ilustrações anteriores
+                const updatedCharacterDescriptions = await characterConsistencyService.getCharacterDescriptions(
+                  story.id, 
+                  characterNames
+                );
                 
                 const generatedImage = await generateChapterImage(
                   chapter.title,
                   chapter.content,
                   characterNames,
-                  imageOptions
+                  {
+                    ...imageOptions,
+                    characterDescriptions: updatedCharacterDescriptions,
+                    chapterId: index + 2  // +2 porque começamos do capítulo 2 (capítulo 1 já foi gerado)
+                  }
                 );
                 
                 chapter.imageUrl = generatedImage.imageUrl;
-                return { success: true, chapter: index, imageUrl: generatedImage.imageUrl };
+                
+                // Atualizar as descrições dos personagens após cada capítulo
+                characterConsistencyService.updateCharacterVisuals(story.id, 
+                  characterNames.map(name => ({
+                    name,
+                    description: chapter.content,
+                    imageUrl: generatedImage.imageUrl
+                  }))
+                );
+                
+                return { success: true, chapter: index + 1, imageUrl: generatedImage.imageUrl };
               } catch (error) {
-                console.error(`Erro ao gerar ilustração para o capítulo ${index + 1}:`, error);
-                return { success: false, chapter: index, error: (error as Error).message };
+                console.error(`Erro ao gerar ilustração para o capítulo ${index + 2}:`, error);
+                return { success: false, chapter: index + 1, error: (error as Error).message };
               }
             });
             
             // Aguardar todas as promessas de geração de imagens
             const results = await Promise.allSettled(illustrationPromises);
             const successCount = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length;
+            const totalGenerated = successCount + (chapters[0].imageUrl ? 1 : 0);
             
-            console.log(`Concluída geração automática de ilustrações: ${successCount}/${chapters.length} imagens geradas com sucesso`);
+            console.log(`Concluída geração automática de ilustrações: ${totalGenerated}/${chapters.length} imagens geradas com sucesso`);
             
           } catch (error) {
             console.error("Erro no processo em segundo plano de geração de ilustrações:", error);
@@ -451,39 +526,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verificar se os capítulos têm imagens, caso contrário, gerar sob demanda
       const processedChapters = [...chapters];
       
-      // Tratar geração de imagens em segundo plano (não bloquear a resposta)
-      for (let i = 0; i < processedChapters.length; i++) {
-        const chapter = processedChapters[i];
-        
-        // Se o capítulo tiver um prompt de imagem mas não tiver URL da imagem, gerar em background
-        if (chapter.imagePrompt && !chapter.imageUrl) {
-          // Não usar await aqui, pois não queremos bloquear a resposta
-          (async () => {
-            try {
-              const characters = (story.characterIds || []).map(async (id) => {
-                const char = await storage.getCharacter(id);
-                return char ? char.name : "";
-              });
-              
-              const resolvedCharacters = await Promise.all(characters);
-              const image = await generateImage(chapter.imagePrompt!, {
-                ageGroup: story.ageGroup as any,
-                mood: "adventure"
-              });
-              
-              // Atualizar o capítulo no array
-              processedChapters[i] = {
-                ...chapter,
-                imageUrl: image.imageUrl
-              };
-              
-              // Aqui poderíamos atualizar o banco de dados com a imagem gerada
-              // mas isso exigiria criar novos endpoints para atualizar capítulos ou histórias
-            } catch (error) {
-              console.error(`Erro ao gerar imagem para capítulo ${i+1}:`, error);
-            }
-          })();
+      // Buscar personagens para a geração de ilustrações
+      const characterIdsArray = story.characterIds || [];
+      const characterPromises = characterIdsArray.map(async (id) => {
+        try {
+          const char = await storage.getCharacter(Number(id));
+          return char ? char.name : "";
+        } catch (error) {
+          console.error(`Erro ao buscar personagem com ID ${id}:`, error);
+          return "";
         }
+      });
+      
+      const characterNames = (await Promise.all(characterPromises)).filter(name => name.length > 0);
+      
+      // Tratar geração de imagens em segundo plano (não bloquear a resposta)
+      if (processedChapters.some(chapter => !chapter.imageUrl)) {
+        // Iniciar processo de geração de imagens em segundo plano
+        (async () => {
+          try {
+            // Importação dinâmica para evitar problemas de dependência circular
+            const { characterConsistencyService } = await import('./services/character-consistency-service');
+            
+            // Obter descrições detalhadas dos personagens para manter consistência visual
+            const characterDescriptions = await characterConsistencyService.getCharacterDescriptions(
+              story.id, 
+              characterNames
+            );
+            
+            // Configurar opções padrão baseadas na faixa etária da história
+            const imageOptions = {
+              style: "cartoon",
+              mood: "adventure",
+              ageGroup: story.ageGroup as any,
+              storyId: story.id,
+              characterDescriptions
+            };
+            
+            // Processar capítulos sem imagens
+            for (let i = 0; i < processedChapters.length; i++) {
+              const chapter = processedChapters[i];
+              
+              // Se o capítulo não tiver URL da imagem, gerar de forma assíncrona
+              if (!chapter.imageUrl) {
+                try {
+                  console.log(`Gerando ilustração em segundo plano para capítulo ${i+1}: "${chapter.title}"`);
+                  
+                  // Obter descrições atualizadas dos personagens após ilustrações anteriores
+                  const updatedCharacterDescriptions = await characterConsistencyService.getCharacterDescriptions(
+                    story.id, 
+                    characterNames
+                  );
+                  
+                  const generatedImage = await generateChapterImage(
+                    chapter.title,
+                    chapter.content,
+                    characterNames,
+                    {
+                      ...imageOptions,
+                      characterDescriptions: updatedCharacterDescriptions,
+                      chapterId: i + 1
+                    }
+                  );
+                  
+                  // Atualizar o capítulo no array
+                  processedChapters[i] = {
+                    ...chapter,
+                    imageUrl: generatedImage.imageUrl
+                  };
+                  
+                  // Atualizar as descrições dos personagens após cada capítulo
+                  characterConsistencyService.updateCharacterVisuals(story.id, 
+                    characterNames.map(name => ({
+                      name,
+                      description: chapter.content,
+                      imageUrl: generatedImage.imageUrl
+                    }))
+                  );
+                  
+                  console.log(`Imagem gerada com sucesso para capítulo ${i+1}`);
+                } catch (error) {
+                  console.error(`Erro ao gerar imagem para capítulo ${i+1}:`, error);
+                }
+                
+                // Pequeno atraso entre solicitações de geração de imagens
+                await new Promise(resolve => setTimeout(resolve, 1000));
+              }
+            }
+            
+            console.log(`Processo de geração de imagens em segundo plano concluído para história ${story.id}`);
+          } catch (error) {
+            console.error("Erro no processo de geração de imagens em segundo plano:", error);
+          }
+        })();
       }
       
       res.json({
