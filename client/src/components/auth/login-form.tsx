@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -41,25 +41,40 @@ const LoginForm = () => {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      const response = await apiRequest("POST", "/api/auth/login", data);
-      if (response && response.success === true) {
+      // Fazer requisição direta sem usar apiRequest
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+        credentials: "include"
+      });
+      
+      const responseData = await response.json();
+      
+      if (response.ok && responseData?.success) {
+        // Invalidar cache de autenticação para forçar nova consulta
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/status"] });
+        
         toast({
           title: "Login realizado com sucesso!",
           description: "Você será redirecionado para a página inicial.",
         });
         
-        // Small delay to ensure session is properly set before navigation
+        // Aguardar antes de navegar para garantir que o estado da sessão está atualizado
         setTimeout(() => {
-          navigate("/dashboard/parent");
-        }, 500);
+          // Atualizar primeiro para garantir que o redirecionamento funcione
+          window.location.href = "/dashboard/parent";
+        }, 1000);
       } else {
-        throw new Error("Login failed");
+        throw new Error(responseData?.message || "Falha no login");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
       toast({
         title: "Erro ao fazer login",
-        description: "Nome de usuário ou senha incorretos.",
+        description: error.message || "Nome de usuário ou senha incorretos.",
         variant: "destructive",
       });
     } finally {

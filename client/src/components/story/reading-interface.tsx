@@ -34,7 +34,6 @@ interface ReadingInterfaceProps {
 const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
   const [progress, setProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
-  const [highlightedWord, setHighlightedWord] = useState<number | null>(null);
 
   // Fetch story details
   const { data: story, isLoading } = useQuery<Story>({
@@ -107,10 +106,7 @@ const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
     }
   };
 
-  // Word highlighting effect for reading assistance
-  useEffect(() => {
-    setHighlightedWord(null);
-  }, [currentPage]);
+  // Remove word highlighting effect
 
   if (isLoading || !story) {
     return (
@@ -161,17 +157,7 @@ const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
 
             <div className="font-reading text-lg mb-6 leading-relaxed flex-grow">
               {pages[currentPage] ? (
-                <p>
-                  {pages[currentPage].split(" ").map((word, i) => (
-                    <span 
-                      key={i} 
-                      className={`${i === highlightedWord ? 'bg-primary text-white px-1 py-0.5 rounded' : ''} transition-all`}
-                      onClick={() => setHighlightedWord(i === highlightedWord ? null : i)}
-                    >
-                      {word}{' '}
-                    </span>
-                  ))}
-                </p>
+                <p>{pages[currentPage]}</p>
               ) : (
                 <p>Carregando história...</p>
               )}
@@ -204,32 +190,32 @@ const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
 
             <Card className="mb-4 shadow-md">
               <CardContent className="p-4">
-                <h4 className="font-heading font-bold mb-2">Leitura Assistida</h4>
+                <h4 className="font-heading font-bold mb-2">Experiência de Leitura</h4>
                 <div className="bg-accent-light p-3 rounded-lg mb-3">
                   <p className="text-sm">
-                    Clique em qualquer palavra do texto para destacá-la e facilitar a leitura.
+                    Aproveite a experiência de leitura com ilustrações coloridas e design adequado para crianças.
                   </p>
                 </div>
                 
                 <div className="p-3 border rounded-lg bg-white">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Guia de Leitura</span>
-                    <Badge variant="outline" className="text-xs">Novo</Badge>
+                    <span className="text-sm font-medium">Recursos Visuais</span>
+                    <Badge variant="outline" className="text-xs">Divertido</Badge>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2 text-xs mb-2">
                     <div className="flex items-center">
-                      <div className="w-4 h-4 rounded-full bg-primary/20 mr-2"></div>
-                      <span>Palavra normal</span>
+                      <div className="w-4 h-4 rounded-full bg-accent mr-2"></div>
+                      <span>Ilustrações coloridas</span>
                     </div>
                     <div className="flex items-center">
-                      <div className="w-4 h-4 rounded-full bg-primary mr-2"></div>
-                      <span>Palavra destacada</span>
+                      <div className="w-4 h-4 rounded-full bg-secondary mr-2"></div>
+                      <span>Layout amigável</span>
                     </div>
                   </div>
                   
                   <p className="text-xs text-muted-foreground mt-2">
-                    Toque nas palavras para destacar e ajudar no acompanhamento da leitura.
+                    Interface adaptada para leitores infantis, com foco em facilidade e diversão.
                   </p>
                 </div>
               </CardContent>

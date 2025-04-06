@@ -8,8 +8,14 @@ import {
   subscriptionPlans, type SubscriptionPlan, type InsertSubscriptionPlan,
   userSubscriptions, type UserSubscription, type InsertUserSubscription
 } from "@shared/schema";
+import session from "express-session";
+import createMemoryStore from "memorystore";
+
+const MemoryStore = createMemoryStore(session);
 
 export interface IStorage {
+  sessionStore: session.Store;
+  
   // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -55,6 +61,7 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
+  sessionStore: session.Store;
   private users: Map<number, User>;
   private childProfiles: Map<number, ChildProfile>;
   private characters: Map<number, Character>;
@@ -74,6 +81,10 @@ export class MemStorage implements IStorage {
   private currentUserSubscriptionId: number;
 
   constructor() {
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000,
+    });
+    
     this.users = new Map();
     this.childProfiles = new Map();
     this.characters = new Map();
@@ -97,7 +108,7 @@ export class MemStorage implements IStorage {
   }
 
   // Initialize default data for demo purposes
-  private initializeDefaultData() {
+  private async initializeDefaultData() {
     // Create subscription plans
     const freePlan: InsertSubscriptionPlan = {
       name: "Plano Gratuito",
@@ -120,9 +131,9 @@ export class MemStorage implements IStorage {
       features: ["Todas as funcionalidades do Plus", "Até 4 perfis de crianças", "Histórias personalizadas com nome da criança", "Analytics avançados de leitura", "Suporte prioritário", "Recursos educacionais exclusivos"]
     };
     
-    this.createSubscriptionPlan(freePlan);
-    this.createSubscriptionPlan(plusPlan);
-    this.createSubscriptionPlan(familyPlan);
+    await this.createSubscriptionPlan(freePlan);
+    await this.createSubscriptionPlan(plusPlan);
+    await this.createSubscriptionPlan(familyPlan);
     
     // Create default characters
     const leoChar: InsertCharacter = {
@@ -182,13 +193,13 @@ export class MemStorage implements IStorage {
       isPremium: true
     };
     
-    this.createCharacter(leoChar);
-    this.createCharacter(biaChar);
-    this.createCharacter(pedroChar);
-    this.createCharacter(lunaChar);
-    this.createCharacter(teoChar);
-    this.createCharacter(ninaChar);
-    this.createCharacter(maxChar);
+    await this.createCharacter(leoChar);
+    await this.createCharacter(biaChar);
+    await this.createCharacter(pedroChar);
+    await this.createCharacter(lunaChar);
+    await this.createCharacter(teoChar);
+    await this.createCharacter(ninaChar);
+    await this.createCharacter(maxChar);
     
     // Create default themes
     const amizadeTheme: InsertTheme = {
@@ -227,11 +238,11 @@ export class MemStorage implements IStorage {
       isPremium: true
     };
     
-    this.createTheme(amizadeTheme);
-    this.createTheme(naturezaTheme);
-    this.createTheme(aventuraTheme);
-    this.createTheme(espacoTheme);
-    this.createTheme(medoTheme);
+    await this.createTheme(amizadeTheme);
+    await this.createTheme(naturezaTheme);
+    await this.createTheme(aventuraTheme);
+    await this.createTheme(espacoTheme);
+    await this.createTheme(medoTheme);
   }
 
   // User methods
@@ -254,7 +265,12 @@ export class MemStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
     const timestamp = new Date();
-    const user: User = { ...insertUser, id, createdAt: timestamp };
+    const user: User = { 
+      ...insertUser, 
+      id, 
+      createdAt: timestamp,
+      role: insertUser.role || "parent"
+    };
     this.users.set(id, user);
     
     // Automatically create a free subscription for new users
@@ -262,7 +278,7 @@ export class MemStorage implements IStorage {
       userId: id,
       planId: 1, // Free plan
       startDate: timestamp,
-      endDate: undefined,
+      endDate: null,
       status: "active"
     });
     
@@ -282,7 +298,12 @@ export class MemStorage implements IStorage {
 
   async createChildProfile(profile: InsertChildProfile): Promise<ChildProfile> {
     const id = this.currentChildProfileId++;
-    const childProfile: ChildProfile = { ...profile, id, createdAt: new Date() };
+    const childProfile: ChildProfile = { 
+      ...profile, 
+      id, 
+      createdAt: new Date(),
+      avatar: profile.avatar || null
+    };
     this.childProfiles.set(id, childProfile);
     return childProfile;
   }
@@ -313,7 +334,11 @@ export class MemStorage implements IStorage {
 
   async createCharacter(character: InsertCharacter): Promise<Character> {
     const id = this.currentCharacterId++;
-    const newCharacter: Character = { ...character, id };
+    const newCharacter: Character = { 
+      ...character, 
+      id,
+      isPremium: character.isPremium || false
+    };
     this.characters.set(id, newCharacter);
     return newCharacter;
   }
@@ -335,13 +360,18 @@ export class MemStorage implements IStorage {
 
   async getThemesByAgeGroup(ageGroup: string): Promise<Theme[]> {
     return Array.from(this.themes.values()).filter(
-      (theme) => theme.ageGroups.includes(ageGroup),
+      (theme) => theme.ageGroups?.includes(ageGroup),
     );
   }
 
   async createTheme(theme: InsertTheme): Promise<Theme> {
     const id = this.currentThemeId++;
-    const newTheme: Theme = { ...theme, id };
+    const newTheme: Theme = { 
+      ...theme, 
+      id,
+      isPremium: theme.isPremium || false,
+      ageGroups: theme.ageGroups || []
+    };
     this.themes.set(id, newTheme);
     return newTheme;
   }
@@ -362,7 +392,13 @@ export class MemStorage implements IStorage {
 
   async createStory(story: InsertStory): Promise<Story> {
     const id = this.currentStoryId++;
-    const newStory: Story = { ...story, id, createdAt: new Date() };
+    const newStory: Story = { 
+      ...story, 
+      id, 
+      createdAt: new Date(),
+      imageUrl: story.imageUrl || null,
+      characterIds: story.characterIds || []
+    };
     this.stories.set(id, newStory);
     return newStory;
   }
@@ -380,7 +416,14 @@ export class MemStorage implements IStorage {
 
   async createReadingSession(session: InsertReadingSession): Promise<ReadingSession> {
     const id = this.currentReadingSessionId++;
-    const newSession: ReadingSession = { ...session, id, lastReadAt: new Date() };
+    const newSession: ReadingSession = { 
+      ...session, 
+      id, 
+      lastReadAt: new Date(),
+      progress: session.progress || 0,
+      completed: session.completed || false,
+      duration: session.duration || 0
+    };
     this.readingSessions.set(id, newSession);
     return newSession;
   }
@@ -416,14 +459,24 @@ export class MemStorage implements IStorage {
 
   async createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
     const id = this.currentSubscriptionPlanId++;
-    const newPlan: SubscriptionPlan = { ...plan, id };
+    const newPlan: SubscriptionPlan = { 
+      ...plan, 
+      id,
+      features: plan.features || []
+    };
     this.subscriptionPlans.set(id, newPlan);
     return newPlan;
   }
 
   async createUserSubscription(subscription: InsertUserSubscription): Promise<UserSubscription> {
     const id = this.currentUserSubscriptionId++;
-    const newSubscription: UserSubscription = { ...subscription, id };
+    const newSubscription: UserSubscription = { 
+      ...subscription, 
+      id,
+      status: subscription.status || "active",
+      startDate: subscription.startDate || new Date(),
+      endDate: subscription.endDate || null
+    };
     this.userSubscriptions.set(id, newSubscription);
     return newSubscription;
   }
@@ -438,4 +491,8 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Import DatabaseStorage
+import { DatabaseStorage } from "./database-storage";
+
+// Use PostgreSQL for storage in production
+export const storage = new DatabaseStorage();
