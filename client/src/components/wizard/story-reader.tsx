@@ -40,9 +40,10 @@ interface Character {
 interface StoryReaderProps {
   storyId: number;
   childId?: number;
+  textOnly?: boolean;
 }
 
-const StoryReader = ({ storyId, childId }: StoryReaderProps) => {
+const StoryReader = ({ storyId, childId, textOnly = false }: StoryReaderProps) => {
   const [currentChapter, setCurrentChapter] = useState(0);
   const [progress, setProgress] = useState(0);
   const [imageGenerating, setImageGenerating] = useState(false);
@@ -299,61 +300,63 @@ const StoryReader = ({ storyId, childId }: StoryReaderProps) => {
                 <h2 className="text-xl font-bold text-primary">
                   {currentChapterContent.title}
                 </h2>
-                <div className="flex space-x-2">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="icon"
-                          onClick={generateCurrentChapterImage}
-                          disabled={imageGenerating || generateImageMutation.isPending}
-                        >
-                          {imageGenerating || generateImageMutation.isPending ? (
-                            <RefreshCw className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Image className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Gerar ilustração para este capítulo</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => generateAllIllustrationsMutation.mutate()}
-                          disabled={generateAllIllustrationsMutation.isPending}
-                          className="text-xs"
-                        >
-                          {generateAllIllustrationsMutation.isPending ? (
-                            <>
-                              <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
-                              Gerando...
-                            </>
-                          ) : (
-                            <>
-                              <Image className="mr-1 h-3 w-3" />
-                              Gerar todas as ilustrações
-                            </>
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Gerar ilustrações para todos os capítulos da história</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
+                {!textOnly && (
+                  <div className="flex space-x-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="icon"
+                            onClick={generateCurrentChapterImage}
+                            disabled={imageGenerating || generateImageMutation.isPending}
+                          >
+                            {imageGenerating || generateImageMutation.isPending ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Image className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Gerar ilustração para este capítulo</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => generateAllIllustrationsMutation.mutate()}
+                            disabled={generateAllIllustrationsMutation.isPending}
+                            className="text-xs"
+                          >
+                            {generateAllIllustrationsMutation.isPending ? (
+                              <>
+                                <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
+                                Gerando...
+                              </>
+                            ) : (
+                              <>
+                                <Image className="mr-1 h-3 w-3" />
+                                Gerar todas as ilustrações
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Gerar ilustrações para todos os capítulos da história</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                )}
               </div>
               
-              {currentChapterContent.imageUrl ? (
+              {!textOnly && currentChapterContent.imageUrl ? (
                 <div className="mb-6 rounded-lg overflow-hidden shadow-md">
                   <img 
                     src={currentChapterContent.imageUrl} 
@@ -361,14 +364,14 @@ const StoryReader = ({ storyId, childId }: StoryReaderProps) => {
                     className="w-full h-auto object-cover"
                   />
                 </div>
-              ) : imageGenerating || generateImageMutation.isPending ? (
+              ) : !textOnly && (imageGenerating || generateImageMutation.isPending) ? (
                 <div className="mb-6 flex items-center justify-center bg-muted h-64 rounded-lg">
                   <div className="text-center">
                     <RefreshCw className="h-10 w-10 animate-spin mx-auto mb-2 text-primary/60" />
                     <p className="text-muted-foreground">Gerando ilustração...</p>
                   </div>
                 </div>
-              ) : (
+              ) : !textOnly ? (
                 <div className="mb-6 flex items-center justify-center bg-muted/30 border border-dashed border-muted-foreground/50 h-64 rounded-lg">
                   <div className="text-center space-y-3">
                     <div className="relative w-full h-2 bg-muted rounded-full overflow-hidden mb-2">
@@ -387,7 +390,7 @@ const StoryReader = ({ storyId, childId }: StoryReaderProps) => {
                     </Button>
                   </div>
                 </div>
-              )}
+              ) : null}
               
               <div className="font-reading text-lg space-y-4 leading-relaxed">
                 {currentChapterContent.content.split("\n\n").map((paragraph, index) => (

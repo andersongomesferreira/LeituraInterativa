@@ -21,11 +21,13 @@ interface Theme {
 interface SummaryStepProps {
   wizardData: WizardData;
   onUpdateChildName: (name: string) => void;
+  onToggleTextOnly?: (textOnly: boolean) => void;
 }
 
-const SummaryStep: React.FC<SummaryStepProps> = ({ wizardData, onUpdateChildName }) => {
+const SummaryStep: React.FC<SummaryStepProps> = ({ wizardData, onUpdateChildName, onToggleTextOnly }) => {
   const [useChildName, setUseChildName] = useState(!!wizardData.childName);
   const [childName, setChildName] = useState(wizardData.childName || "");
+  const [textOnly, setTextOnly] = useState(wizardData.textOnly || false);
 
   const { data: characters = [] } = useQuery<Character[]>({
     queryKey: ["/api/characters"],
@@ -54,6 +56,13 @@ const SummaryStep: React.FC<SummaryStepProps> = ({ wizardData, onUpdateChildName
   const handleChildNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setChildName(e.target.value);
     onUpdateChildName(e.target.value);
+  };
+  
+  const handleTextOnlyToggle = (checked: boolean) => {
+    setTextOnly(checked);
+    if (onToggleTextOnly) {
+      onToggleTextOnly(checked);
+    }
   };
 
   return (
@@ -112,6 +121,22 @@ const SummaryStep: React.FC<SummaryStepProps> = ({ wizardData, onUpdateChildName
               />
             </div>
           )}
+        </div>
+        
+        <div className="border border-primary/30 p-4 rounded-lg bg-primary/5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">Modo somente texto</h3>
+              <p className="text-sm text-muted-foreground">
+                Histórias sem ilustrações, apenas conteúdo textual
+              </p>
+            </div>
+            <Switch 
+              checked={textOnly} 
+              onCheckedChange={handleTextOnlyToggle} 
+              id="text-only-toggle"
+            />
+          </div>
         </div>
       </div>
     </div>

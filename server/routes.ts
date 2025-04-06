@@ -7,8 +7,13 @@ import {
   generateImage, 
   generateCharacterImage, 
   generateChapterImage,
-  extractChapters
+  extractChapters,
+  getAIProvidersStatus
 } from "./services/ai-service";
+
+// Import API key routes
+import apiKeysRoutes from './routes/api-keys';
+import userApiKeysRoutes from './routes/user-api-keys';
 
 // Tipo para opções de geração de imagens
 interface GenerateImageOptions {
@@ -45,8 +50,6 @@ declare module "express-session" {
     isAuthenticated?: boolean;
   }
 }
-
-import { getAIProvidersStatus } from "./services/ai-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -364,11 +367,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         themeId: theme
       });
       
+      // Criar uma versão limpa da resposta
       const responseData = {
         ...story,
         summary: generatedStory.summary,
         readingTime: generatedStory.readingTime,
-        chapters: generatedStory.chapters
+        chapters: generatedStory.chapters.map(chapter => ({
+          title: chapter.title,
+          content: chapter.content,
+          // Sem imagePrompt ou imageUrl para modo somente texto
+        }))
       };
       
       console.log("Enviando resposta de história gerada:", JSON.stringify({
@@ -377,126 +385,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         chaptersCount: responseData.chapters?.length || 0
       }));
       
-      // Iniciar geração automática de ilustrações em segundo plano
-      if (responseData.chapters && responseData.chapters.length > 0) {
-        // Não aguardamos a conclusão para não bloquear a resposta
-        (async () => {
-          try {
-            console.log(`Iniciando geração automática de ilustrações para história "${story.title}" (ID: ${story.id})...`);
-            
-            // Importação dinâmica para evitar problemas de dependência circular
-            const { characterConsistencyService } = await import('./services/character-consistency-service');
-            
-            // Buscar personagens para a geração de ilustrações
-            const characterNames = charactersData
-              .filter(c => c !== undefined)
-              .map(c => c!.name);
-            
-            // Obter descrições detalhadas dos personagens para manter consistência visual
-            const characterDescriptions = await characterConsistencyService.getCharacterDescriptions(
-              story.id, 
-              characterNames
-            );
-            
-            // Configurar opções padrão baseadas na faixa etária da história
-            const imageOptions: GenerateImageOptions = {
-              style: "cartoon",
-              mood: "adventure",
-              ageGroup,
-              storyId: story.id,
-              characterDescriptions
-            };
-            
-            // Extrair capítulos 
-            const chapters = responseData.chapters;
-            
-            // Gerar primeiro capítulo imediatamente para feedback rápido
-            if (chapters.length > 0) {
-              console.log(`Priorizando ilustração para o primeiro capítulo: "${chapters[0].title}"`);
-              
-              try {
-                const firstChapterImage = await generateChapterImage(
-                  chapters[0].title,
-                  chapters[0].content,
-                  characterNames,
-                  {
-                    ...imageOptions,
-                    chapterId: 1
-                  }
-                );
-                
-                chapters[0].imageUrl = firstChapterImage.imageUrl;
-                
-                // Atualizar as descrições dos personagens com base nessa primeira imagem
-                characterConsistencyService.updateCharacterVisuals(story.id, 
-                  characterNames.map(name => ({
-                    name,
-                    description: chapters[0].content,
-                    imageUrl: firstChapterImage.imageUrl
-                  }))
-                );
-              } catch (error) {
-                console.error("Erro ao gerar ilustração para o primeiro capítulo:", error);
-              }
-            }
-            
-            // Gerar ilustrações para os capítulos restantes em paralelo com atraso escalonado
-            // Isso permite que o usuário comece a ler enquanto as ilustrações são geradas
-            const illustrationPromises = chapters.slice(1).map(async (chapter, index) => {
-              try {
-                // Pequeno atraso para evitar sobrecarregar a API e dar tempo para o usuário ler
-                // Capítulos posteriores têm espera progressivamente maior
-                await new Promise(resolve => setTimeout(resolve, (index + 1) * 3000));
-                
-                console.log(`Gerando ilustração automática para capítulo ${index + 2}/${chapters.length}: "${chapter.title}"`);
-                
-                // Obter descrições atualizadas dos personagens após ilustrações anteriores
-                const updatedCharacterDescriptions = await characterConsistencyService.getCharacterDescriptions(
-                  story.id, 
-                  characterNames
-                );
-                
-                const generatedImage = await generateChapterImage(
-                  chapter.title,
-                  chapter.content,
-                  characterNames,
-                  {
-                    ...imageOptions,
-                    characterDescriptions: updatedCharacterDescriptions,
-                    chapterId: index + 2  // +2 porque começamos do capítulo 2 (capítulo 1 já foi gerado)
-                  }
-                );
-                
-                chapter.imageUrl = generatedImage.imageUrl;
-                
-                // Atualizar as descrições dos personagens após cada capítulo
-                characterConsistencyService.updateCharacterVisuals(story.id, 
-                  characterNames.map(name => ({
-                    name,
-                    description: chapter.content,
-                    imageUrl: generatedImage.imageUrl
-                  }))
-                );
-                
-                return { success: true, chapter: index + 1, imageUrl: generatedImage.imageUrl };
-              } catch (error) {
-                console.error(`Erro ao gerar ilustração para o capítulo ${index + 2}:`, error);
-                return { success: false, chapter: index + 1, error: (error as Error).message };
-              }
-            });
-            
-            // Aguardar todas as promessas de geração de imagens
-            const results = await Promise.allSettled(illustrationPromises);
-            const successCount = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length;
-            const totalGenerated = successCount + (chapters[0].imageUrl ? 1 : 0);
-            
-            console.log(`Concluída geração automática de ilustrações: ${totalGenerated}/${chapters.length} imagens geradas com sucesso`);
-            
-          } catch (error) {
-            console.error("Erro no processo em segundo plano de geração de ilustrações:", error);
-          }
-        })();
-      }
+      // Modo somente texto - pulando geração de ilustrações
+      /* Comentando e removendo todo o código de geração de ilustrações
+      // O código de geração de imagens foi removido, pois o cliente solicitou histórias somente texto
+      */
       
       res.json(responseData);
     } catch (error) {
@@ -901,6 +793,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(providersStatus);
     } catch (error) {
       console.error("Erro ao obter status dos provedores de IA:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  
+  // Registrar rotas para gerenciamento de chaves API (admin)
+  app.use('/api/admin/ai-keys', apiKeysRoutes);
+  
+  // Registrar rotas para gerenciamento de chaves API (usuário)
+  app.use('/api/user/ai-keys', userApiKeysRoutes);
+  
+  // Endpoint público para verificar quais provedores de IA estão disponíveis
+  app.get("/api/ai-providers/public-status", async (req, res) => {
+    try {
+      const providers = getAIProvidersStatus();
+      
+      // Filtrar apenas informações públicas (sem detalhes sensíveis)
+      const publicInfo = providers.map(provider => ({
+        id: provider.id,
+        name: provider.name,
+        isAvailable: provider.isAvailable,
+        // Versão simplificada sem requerer os detalhes de capabilities
+        supportsImages: provider.id !== 'anthropic', // Todos exceto Anthropic suportam imagens
+        supportsText: true // Todos suportam texto
+      }));
+      
+      res.json(publicInfo);
+    } catch (error) {
+      console.error("Erro ao obter status público dos provedores de IA:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });

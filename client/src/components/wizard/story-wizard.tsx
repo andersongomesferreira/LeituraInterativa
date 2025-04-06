@@ -18,6 +18,7 @@ export type WizardData = {
   themeId: number;
   childName?: string;
   childId?: number;
+  textOnly?: boolean;
 };
 
 const StoryWizard = () => {
@@ -37,7 +38,8 @@ const StoryWizard = () => {
         characters: storyData.characterIds,
         theme: storyData.themeId,
         ageGroup: storyData.ageGroup,
-        childName: storyData.childName
+        childName: storyData.childName,
+        textOnly: storyData.textOnly
       };
       
       try {
@@ -139,7 +141,11 @@ const StoryWizard = () => {
       case 3:
         return <ThemeStep selectedTheme={data.themeId} onSelectTheme={(themeId: number) => updateData({ themeId })} ageGroup={data.ageGroup} />;
       case 4:
-        return <SummaryStep wizardData={data} onUpdateChildName={(childName: string) => updateData({ childName })} />;
+        return <SummaryStep 
+          wizardData={data} 
+          onUpdateChildName={(childName: string) => updateData({ childName })} 
+          onToggleTextOnly={(textOnly: boolean) => updateData({ textOnly })}
+        />;
       default:
         return null;
     }
