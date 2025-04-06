@@ -11,16 +11,22 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
-): Promise<Response> {
+): Promise<any> {
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+  
+  // For auth endpoints, don't throw on error status codes
+  // Instead, let the component handle the response
+  if (url === "/api/auth/login" || url === "/api/auth/register") {
+    return res.json();
+  }
 
   await throwIfResNotOk(res);
-  return res;
+  return res.json();
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

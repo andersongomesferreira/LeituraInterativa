@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -6,17 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
-import { base64ToBlob, formatReadingTime } from "@/lib/utils";
+import { formatReadingTime } from "@/lib/utils";
 import {
   ChevronLeft,
   ChevronRight,
-  Play,
-  Pause,
-  Volume2,
-  Download,
   BookmarkPlus,
   Share2,
-  Settings,
 } from "lucide-react";
 
 interface Story {
@@ -37,11 +32,9 @@ interface ReadingInterfaceProps {
 }
 
 const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
-  const [isReading, setIsReading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [highlightedWord, setHighlightedWord] = useState<number | null>(null);
 
   // Fetch story details
   const { data: story, isLoading } = useQuery<Story>({
@@ -49,7 +42,13 @@ const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
   });
 
   // Fetch characters
-  const { data: characters = [] } = useQuery({
+  interface Character {
+    id: number;
+    name: string;
+    description: string;
+  }
+  
+  const { data: characters = [] } = useQuery<Character[]>({
     queryKey: ["/api/characters"],
     enabled: !!story,
   });
@@ -61,25 +60,6 @@ const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
         .filter((p) => p.trim().length > 0)
         .map((p) => p.trim())
     : [];
-
-  // Generate audio narration
-  const narrateMutation = useMutation({
-    mutationFn: async (text: string) => {
-      return apiRequest("POST", "/api/stories/narrate", { text });
-    },
-    onSuccess: (data) => {
-      if (data.audio) {
-        const blob = base64ToBlob(data.audio);
-        const url = URL.createObjectURL(blob);
-        setAudioUrl(url);
-        
-        if (audioRef.current) {
-          audioRef.current.src = url;
-          audioRef.current.play();
-        }
-      }
-    },
-  });
 
   // Update reading session
   const updateSessionMutation = useMutation({
@@ -127,39 +107,10 @@ const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
     }
   };
 
-  // Handle text to speech
-  const toggleReading = () => {
-    if (!audioRef.current) return;
-    
-    if (isReading) {
-      audioRef.current.pause();
-    } else {
-      if (audioUrl) {
-        audioRef.current.play();
-      } else {
-        narrateMutation.mutate(pages[currentPage]);
-      }
-    }
-    
-    setIsReading(!isReading);
-  };
-
-  // Update audio when page changes
+  // Word highlighting effect for reading assistance
   useEffect(() => {
-    setAudioUrl(null);
-    setIsReading(false);
-    
-    // Cancel any previous audio
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-    }
+    setHighlightedWord(null);
   }, [currentPage]);
-
-  // Handle audio ended event
-  const handleAudioEnded = () => {
-    setIsReading(false);
-  };
 
   if (isLoading || !story) {
     return (
@@ -209,7 +160,21 @@ const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
             </div>
 
             <div className="font-reading text-lg mb-6 leading-relaxed flex-grow">
-              <p>{pages[currentPage]}</p>
+              {pages[currentPage] ? (
+                <p>
+                  {pages[currentPage].split(" ").map((word, i) => (
+                    <span 
+                      key={i} 
+                      className={`${i === highlightedWord ? 'bg-primary text-white px-1 py-0.5 rounded' : ''} transition-all`}
+                      onClick={() => setHighlightedWord(i === highlightedWord ? null : i)}
+                    >
+                      {word}{' '}
+                    </span>
+                  ))}
+                </p>
+              ) : (
+                <p>Carregando história...</p>
+              )}
             </div>
 
             <div className="flex justify-between mt-auto">
@@ -239,48 +204,33 @@ const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
 
             <Card className="mb-4 shadow-md">
               <CardContent className="p-4">
-                <h4 className="font-heading font-bold mb-2">Narrador Virtual</h4>
-                <div className="flex items-center space-x-3 mb-3">
-                  <Button
-                    onClick={toggleReading}
-                    className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-md hover:bg-primary-dark transition-colors"
-                    disabled={narrateMutation.isPending}
-                  >
-                    {isReading ? <Pause /> : <Play />}
-                  </Button>
-                  <div className="flex-1">
-                    <Progress 
-                      value={0} 
-                      className="h-2" 
-                      max={100}
-                    />
-                  </div>
-                  <audio
-                    ref={audioRef}
-                    onEnded={handleAudioEnded}
-                    onError={() => setIsReading(false)}
-                    className="hidden"
-                  />
+                <h4 className="font-heading font-bold mb-2">Leitura Assistida</h4>
+                <div className="bg-accent-light p-3 rounded-lg mb-3">
+                  <p className="text-sm">
+                    Clique em qualquer palavra do texto para destacá-la e facilitar a leitura.
+                  </p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Button variant="ghost" size="icon" className="mr-2">
-                      <Volume2 className="h-4 w-4" />
-                    </Button>
-                    <select className="bg-neutral-100 border border-neutral-300 rounded px-2 py-1 text-sm">
-                      <option>Narrador amigável</option>
-                      <option>Narrador aventureiro</option>
-                      <option>Narradora calma</option>
-                    </select>
+                
+                <div className="p-3 border rounded-lg bg-white">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Guia de Leitura</span>
+                    <Badge variant="outline" className="text-xs">Novo</Badge>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Button variant="ghost" size="icon">
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon">
-                      <Download className="h-4 w-4" />
-                    </Button>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-xs mb-2">
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 rounded-full bg-primary/20 mr-2"></div>
+                      <span>Palavra normal</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 rounded-full bg-primary mr-2"></div>
+                      <span>Palavra destacada</span>
+                    </div>
                   </div>
+                  
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Toque nas palavras para destacar e ajudar no acompanhamento da leitura.
+                  </p>
                 </div>
               </CardContent>
             </Card>

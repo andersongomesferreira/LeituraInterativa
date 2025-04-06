@@ -41,12 +41,20 @@ const LoginForm = () => {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      await apiRequest("POST", "/api/auth/login", data);
-      toast({
-        title: "Login realizado com sucesso!",
-        description: "Você será redirecionado para a página inicial.",
-      });
-      navigate("/dashboard/parent");
+      const response = await apiRequest("POST", "/api/auth/login", data);
+      if (response && response.success === true) {
+        toast({
+          title: "Login realizado com sucesso!",
+          description: "Você será redirecionado para a página inicial.",
+        });
+        
+        // Small delay to ensure session is properly set before navigation
+        setTimeout(() => {
+          navigate("/dashboard/parent");
+        }, 500);
+      } else {
+        throw new Error("Login failed");
+      }
     } catch (error) {
       console.error("Login error:", error);
       toast({

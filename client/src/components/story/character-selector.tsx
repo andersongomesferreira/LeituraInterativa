@@ -31,11 +31,27 @@ const CharacterSelector = ({
     queryKey: ["/api/characters"],
   });
 
-  const { data: authStatus } = useQuery({
+  interface AuthStatus {
+    isAuthenticated: boolean;
+    user?: {
+      id: number;
+      name: string;
+    };
+  }
+
+  interface Subscription {
+    plan: {
+      id: number;
+      name: string;
+      price: number;
+    };
+  }
+
+  const { data: authStatus } = useQuery<AuthStatus>({
     queryKey: ["/api/auth/status"],
   });
 
-  const { data: subscription } = useQuery({
+  const { data: subscription } = useQuery<Subscription>({
     queryKey: ["/api/user-subscription"],
     enabled: !!authStatus?.isAuthenticated,
   });
@@ -132,12 +148,24 @@ const CharacterSelector = ({
                     </Badge>
                   )}
                   
-                  <div className="h-24 flex items-center justify-center mb-2">
-                    <img
-                      src={character.imageUrl}
-                      alt={character.name}
-                      className="max-h-full max-w-full object-contain"
-                    />
+                  <div className="h-24 flex items-center justify-center mb-2 bg-neutral-100 rounded-md">
+                    {character.imageUrl ? (
+                      <img
+                        src={character.imageUrl}
+                        alt={character.name}
+                        className="max-h-full max-w-full object-contain"
+                        onError={(e) => {
+                          // Fallback to a colored avatar with initial
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          target.parentElement!.innerHTML = `<div class="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold">${character.name.charAt(0)}</div>`;
+                        }}
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold">
+                        {character.name.charAt(0)}
+                      </div>
+                    )}
                   </div>
                   <h4 className="font-heading font-bold text-sm line-clamp-1">
                     {character.name}

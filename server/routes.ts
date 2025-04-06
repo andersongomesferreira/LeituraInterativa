@@ -124,19 +124,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/login", passport.authenticate("local"), (req, res) => {
-    const user = req.user as any;
-    // Don't send password to client
-    const { password, ...userWithoutPassword } = user;
-    
-    res.json({
-      user: userWithoutPassword,
-      message: "Login realizado com sucesso"
-    });
+  app.post("/api/auth/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: "Erro interno", error: err.message });
+      }
+      
+      if (!user) {
+        return res.status(401).json({ success: false, message: info?.message || "Credenciais inválidas" });
+      }
+      
+      req.login(user, (loginErr: any) => {
+        if (loginErr) {
+          return res.status(500).json({ success: false, message: "Erro ao fazer login", error: loginErr.message });
+        }
+        
+        // Don't send password to client
+        const { password, ...userWithoutPassword } = user;
+        
+        // Set cookie headers explicitly to ensure they're sent correctly
+        req.session.save((saveErr: any) => {
+          if (saveErr) {
+            return res.status(500).json({ success: false, message: "Erro ao salvar sessão", error: saveErr.message });
+          }
+          
+          return res.json({
+            success: true,
+            user: userWithoutPassword,
+            message: "Login realizado com sucesso"
+          });
+        });
+      });
+    })(req, res, next);
   });
 
   app.post("/api/auth/logout", (req, res) => {
-    req.logout((err) => {
+    req.logout((err: any) => {
       if (err) {
         return res.status(500).json({ message: "Erro ao fazer logout" });
       }
