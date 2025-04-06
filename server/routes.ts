@@ -1,7 +1,15 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateStory, generateAudioFromText, generateImage, generateCharacterImage, extractChapters } from "./services/openai";
+import { 
+  generateStory, 
+  generateAudioFromText, 
+  generateImage, 
+  generateCharacterImage, 
+  generateChapterImage,
+  extractChapters, 
+  GenerateImageOptions 
+} from "./services/openai";
 import { insertUserSchema, insertChildProfileSchema, insertStorySchema, insertReadingSessionSchema } from "@shared/schema";
 import { z } from "zod";
 import session from "express-session";
@@ -393,13 +401,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Gerar imagem para um capítulo da história
   app.post("/api/stories/generateImage", isAuthenticated, async (req, res) => {
     try {
-      const { prompt } = req.body;
+      const { prompt, options } = req.body;
       
       if (!prompt) {
         return res.status(400).json({ message: "Prompt não fornecido" });
       }
       
-      const generatedImage = await generateImage(prompt);
+      const imageOptions: GenerateImageOptions = options || {};
+      const generatedImage = await generateImage(prompt, imageOptions);
       res.json(generatedImage);
     } catch (error) {
       console.error("Error generating image:", error);
@@ -410,17 +419,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Gerar imagem para um personagem
   app.post("/api/characters/generateImage", isAuthenticated, async (req, res) => {
     try {
-      const { character } = req.body;
+      const { character, options } = req.body;
       
       if (!character) {
         return res.status(400).json({ message: "Nome do personagem não fornecido" });
       }
       
-      const generatedImage = await generateCharacterImage(character);
+      const imageOptions: GenerateImageOptions = options || {};
+      const generatedImage = await generateCharacterImage(character, imageOptions);
       res.json(generatedImage);
     } catch (error) {
       console.error("Error generating character image:", error);
       res.status(500).json({ message: "Erro ao gerar imagem do personagem" });
+    }
+  });
+  
+  // Gerar imagem para um capítulo específico da história
+  app.post("/api/stories/generateChapterImage", isAuthenticated, async (req, res) => {
+    try {
+      const { chapterTitle, chapterContent, characters, options } = req.body;
+      
+      if (!chapterTitle || !chapterContent) {
+        return res.status(400).json({ message: "Título e conteúdo do capítulo são obrigatórios" });
+      }
+      
+      const imageOptions: GenerateImageOptions = options || {};
+      const generatedImage = await generateChapterImage(
+        chapterTitle,
+        chapterContent,
+        characters || [],
+        imageOptions
+      );
+      
+      res.json(generatedImage);
+    } catch (error) {
+      console.error("Error generating chapter image:", error);
+      res.status(500).json({ message: "Erro ao gerar imagem do capítulo" });
+    }
+  });
+  
+  // Gerar ilustrações para todos os capítulos de uma história
+  app.post("/api/stories/:id/generateIllustrations", isAuthenticated, async (req, res) => {
+    try {
+      const storyId = parseInt(req.params.id);
+      const { options } = req.body;
+      
+      if (isNaN(storyId)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+      
+      // Buscar história
+      const story = await storage.getStory(storyId);
+      if (!story) {
+        return res.status(404).json({ message: "História não encontrada" });
+      }
+      
+      // Extrair capítulos
+      const chapters = extractChapters(story.content);
+      if (chapters.length === 0) {
+        return res.status(400).json({ message: "Não foi possível extrair capítulos da história" });
+      }
+      
+      console.log(`Gerando ilustrações para ${chapters.length} capítulos da história "${story.title}"...`);
+      
+      // Buscar personagens
+      const characterIds = story.characterIds as number[];
+      const characters = await Promise.all(
+        characterIds.map((id: number) => storage.getCharacter(id))
+      );
+      const characterNames = characters
+        .filter(c => c !== undefined)
+        .map(c => c!.name);
+      
+      // Configurar opções padrão baseadas na faixa etária da história
+      const imageOptions: GenerateImageOptions = {
+        ...options,
+        ageGroup: story.ageGroup
+      };
+      
+      // Gerar ilustrações para cada capítulo em paralelo
+      const illustrationPromises = chapters.map(async (chapter, index) => {
+        try {
+          console.log(`Gerando ilustração para o capítulo ${index + 1}: ${chapter.title}`);
+          
+          const generatedImage = await generateChapterImage(
+            chapter.title,
+            chapter.content,
+            characterNames,
+            imageOptions
+          );
+          
+          // Atualizar o capítulo com a URL da imagem
+          chapters[index].imageUrl = generatedImage.imageUrl;
+          return { success: true, chapter: index, imageUrl: generatedImage.imageUrl };
+        } catch (error) {
+          console.error(`Erro ao gerar ilustração para o capítulo ${index + 1}:`, error);
+          return { success: false, chapter: index, error: (error as Error).message };
+        }
+      });
+      
+      // Aguardar todas as promessas de geração de imagens
+      const results = await Promise.allSettled(illustrationPromises);
+      
+      // Contar quantas ilustrações foram geradas com sucesso
+      const successCount = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length;
+      
+      // Mapear os resultados para um formato mais amigável
+      const illustrationResults = results.map((result, index) => {
+        if (result.status === 'fulfilled') {
+          const value = result.value as any;
+          return {
+            chapter: index,
+            title: chapters[index].title,
+            success: value.success,
+            imageUrl: value.imageUrl || null,
+            error: value.error || null
+          };
+        } else {
+          return {
+            chapter: index,
+            title: chapters[index].title,
+            success: false,
+            imageUrl: null,
+            error: result.reason || "Erro desconhecido"
+          };
+        }
+      });
+      
+      res.json({
+        storyId,
+        totalChapters: chapters.length,
+        successfulIllustrations: successCount,
+        chapters: illustrationResults,
+        chaptersWithImages: chapters
+      });
+    } catch (error) {
+      console.error("Erro ao gerar ilustrações para a história:", error);
+      res.status(500).json({ message: "Erro ao gerar ilustrações para a história" });
     }
   });
 

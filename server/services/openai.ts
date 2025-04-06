@@ -93,21 +93,68 @@ export function extractChapters(content: string): Chapter[] {
 }
 
 // Função para gerar imagem usando DALL-E
-export async function generateImage(prompt: string): Promise<GeneratedImage> {
+export interface GenerateImageOptions {
+  style?: "cartoon" | "watercolor" | "pencil" | "digital";
+  mood?: "happy" | "adventure" | "calm" | "exciting";
+  backgroundColor?: string;
+  characterStyle?: "cute" | "funny" | "heroic";
+  ageGroup?: "3-5" | "6-8" | "9-12";
+}
+
+// Estilo de ilustração baseado na faixa etária
+function getIllustrationStyleByAge(ageGroup?: string): string {
+  switch (ageGroup) {
+    case "3-5":
+      return "estilo muito simples e colorido, formas arredondadas, personagens grandes e expressivos, poucos detalhes";
+    case "6-8":
+      return "estilo cartunizado colorido com personagens expressivos, cenários mais detalhados, cores vibrantes";
+    case "9-12":
+      return "estilo cartunizado com mais detalhes, personagens com proporções mais realistas, cenários elaborados, cores ricas";
+    default:
+      return "estilo cartunizado colorido adequado para crianças";
+  }
+}
+
+export async function generateImage(prompt: string, options: GenerateImageOptions = {}): Promise<GeneratedImage> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("Chave da API OpenAI não configurada. Não é possível gerar imagens.");
   }
   
+  // Definir estilos baseados nas opções
+  const style = options.style || "cartoon";
+  const mood = options.mood || "happy";
+  const ageStyle = getIllustrationStyleByAge(options.ageGroup);
+  
+  // Construir o prompt final
+  let enhancedPrompt = prompt;
+  
+  // Adicionar instruções detalhadas para garantir que a imagem seja um desenho infantil
+  enhancedPrompt += `\nIlustrações de livro infantil em estilo ${style}, com clima ${mood}, ${ageStyle}.`;
+  enhancedPrompt += "\nTodos os elementos devem ser cartunizados e adequados para crianças, NÃO realistas.";
+  enhancedPrompt += "\nCores vibrantes e alegres, traços limpos, personagens expressivos com olhos grandes.";
+  
+  // Adicionar regras negativas explícitas
+  enhancedPrompt += "\nEVITE: estilo de anime japonês, estilo fotorrealista, imagens assustadoras, texto dentro da imagem.";
+  
+  // Personalizar baseado na idade
+  if (options.ageGroup === "3-5") {
+    enhancedPrompt += "\nIlustração MUITO simples e acolhedora, personagens MUITO fofinhos, cores primárias, fundo simples.";
+  } else if (options.ageGroup === "9-12") {
+    enhancedPrompt += "\nIlustração um pouco mais detalhada, mas ainda cartunizada, cenas mais dinâmicas, cores mais variadas.";
+  }
+  
   try {
-    console.log("Gerando imagem...");
-    console.log("Prompt:", prompt);
+    console.log("Gerando imagem aprimorada...");
+    console.log("Prompt base:", prompt);
+    console.log("Opções:", options);
     
     const response = await openai.images.generate({
       model: "dall-e-3",
-      prompt: prompt + " (desenho infantil, ilustração de livro para crianças, colorido, cartunizado, NÃO realista)",
+      prompt: enhancedPrompt,
       n: 1,
       size: "1024x1024",
       quality: "standard",
+      style: "vivid"
     });
     
     console.log("Imagem gerada com sucesso");
@@ -130,9 +177,97 @@ export async function generateImage(prompt: string): Promise<GeneratedImage> {
 }
 
 // Função para gerar imagem de um personagem
-export async function generateCharacterImage(character: string): Promise<GeneratedImage> {
-  const prompt = `Desenho infantil colorido de ${character} - estilo cartunizado, divertido e amigável para crianças. Personagem em fundo branco, visual simpático e expressivo.`;
-  return generateImage(prompt);
+export async function generateCharacterImage(character: string, options: GenerateImageOptions = {}): Promise<GeneratedImage> {
+  const characterStyle = options.characterStyle || "cute";
+  const backgroundColor = options.backgroundColor || "branco";
+  
+  let characterPrompt = `Desenho infantil colorido de ${character}`;
+  
+  // Adaptar o prompt baseado no tipo de personagem
+  if (character.includes("Leão")) {
+    characterPrompt += `, um leão ${characterStyle} e amigável`;
+  } else if (character.includes("Polvo")) {
+    characterPrompt += `, um polvo ${characterStyle} e inteligente`;
+  } else if (character.includes("Coelho")) {
+    characterPrompt += `, um coelho ${characterStyle} e ágil`;
+  } else {
+    characterPrompt += `, personagem ${characterStyle} e expressivo`;
+  }
+  
+  characterPrompt += `. Corpo inteiro do personagem, fundo ${backgroundColor}, visual simpático e detalhado.`;
+  
+  return generateImage(characterPrompt, options);
+}
+
+// Função para gerar imagem de um capítulo da história
+export async function generateChapterImage(
+  chapterTitle: string, 
+  chapterContent: string,
+  characters: string[] = [],
+  options: GenerateImageOptions = {}
+): Promise<GeneratedImage> {
+  // Extrair os elementos principais do capítulo para criar um prompt mais detalhado
+  const contentSummary = chapterContent.length > 300 
+    ? chapterContent.substring(0, 300) 
+    : chapterContent;
+  
+  // Criar um prompt para análise do capítulo
+  const analysisPrompt = `
+    Título do capítulo: "${chapterTitle}"
+    Conteúdo: "${contentSummary}"
+    
+    Baseado no título e conteúdo acima, qual seria a cena principal para ilustrar?
+    Personagens envolvidos: ${characters.join(", ")}
+    
+    Responda no formato JSON:
+    {
+      "scene": "descrição detalhada da cena principal",
+      "characters": "quais personagens aparecem na cena",
+      "setting": "local onde a cena acontece",
+      "action": "o que está acontecendo na cena",
+      "mood": "clima/emoção da cena"
+    }
+  `;
+  
+  try {
+    // Analisar o capítulo para gerar um prompt melhor
+    const analysis = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: analysisPrompt }],
+      response_format: { type: "json_object" }
+    });
+    
+    let sceneAnalysis;
+    try {
+      sceneAnalysis = JSON.parse(analysis.choices[0].message.content || "{}");
+    } catch (error) {
+      console.error("Erro ao analisar resposta JSON:", error);
+      sceneAnalysis = {
+        scene: chapterTitle,
+        characters: characters.join(", "),
+        setting: "cena da história",
+        action: "momento importante",
+        mood: "interessante"
+      };
+    }
+    
+    // Criar um prompt detalhado baseado na análise
+    const detailedPrompt = `
+      Ilustração de livro infantil para o capítulo "${chapterTitle}":
+      Cena: ${sceneAnalysis.scene}
+      Personagens: ${sceneAnalysis.characters}
+      Cenário: ${sceneAnalysis.setting}
+      Ação: ${sceneAnalysis.action}
+      Clima: ${sceneAnalysis.mood}
+    `;
+    
+    return generateImage(detailedPrompt, options);
+  } catch (error) {
+    console.error("Erro na análise do capítulo:", error);
+    // Fallback para um prompt mais simples em caso de erro
+    const simplePrompt = `Desenho infantil colorido ilustrando o capítulo "${chapterTitle}" com ${characters.join(", ")} - cena principal da história`;
+    return generateImage(simplePrompt, options);
+  }
 }
 
 export async function generateStory(params: StoryParams): Promise<GeneratedStory> {

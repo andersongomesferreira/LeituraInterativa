@@ -1,0 +1,43 @@
+1. Character illustrations:
+   - Need to be actual drawings/cartoons, not realistic images
+   - Should be fun/playful in style
+   - Emphasizing these should be drawings, not photographs or realistic renderings
+
+2. Chapter illustrations:
+   - Each chapter of a story should have a corresponding illustration
+   - These illustrations should represent the content of that specific chapter
+   - Again, these should be in a drawing/cartoon style
+
+This is a request about the visual design direction for the story generation platform, specifically focusing on the illustration style and implementation. The user wants a more cartoon-like, child-friendly illustration approach throughout the platform.
+
+I'll create a concise technical specification focusing on these illustration requirements in English.
+
+# LeiturinhaBot - Illustration Enhancement Specification
+
+## Character Illustration Requirements
+- **Drawing Style**: Implement playful cartoon-style drawings for all characters (no realistic images)
+- **Visual Appeal**: Increase color vibrancy and character expressiveness
+- **Style Consistency**: Maintain child-friendly illustration style across all character assets
+- **Design Elements**: Incorporate exaggerated features, dynamic poses, and appealing visual characteristics
+- **Completeness**: Ensure every character has corresponding illustrations
+
+## Chapter Visualization System
+- **Per-Chapter Illustrations**: Generate a unique drawing for each story chapter
+- **Content Relevance**: Each illustration must directly represent the chapter's key scene or theme
+- **Narrative Integration**: Position illustrations strategically within text to enhance reading experience
+- **Style Matching**: Maintain consistent artistic style between character and chapter illustrations
+- **Generation Trigger**: Implement automatic drawing generation upon chapter completion
+
+## Technical Implementation
+- **AI Parameters**: Adjust image generation parameters to prioritize cartoon aesthetics
+- **Style Transfer**: Apply cartoon-style filters to ensure consistency across all generated content
+- **Prompt Engineering**: Refine AI prompts to specifically request "fun drawings" with child-appropriate elements
+- **Quality Control**: Implement validation layer to reject any realistic or photograph-like images
+- **Fallback System**: Create library of pre-designed illustrations for system failures
+
+## Visual Design Guidelines
+- **Age Appropriateness**: Adjust illustration complexity based on target age group
+- **Color Palette**: Use bright, engaging colors with strong contrast
+- **Line Quality**: Implement clear outlines and simplified shapes
+- **Expression**: Emphasize emotional expressiveness in character faces
+- **Dynamism**: Incorporate movement and energy in pose designs
