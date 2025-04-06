@@ -39,7 +39,7 @@ const StoryWizard = () => {
         theme: storyData.themeId,
         ageGroup: storyData.ageGroup,
         childName: storyData.childName,
-        textOnly: storyData.textOnly
+        textOnly: storyData.textOnly === undefined ? true : storyData.textOnly // Ensure textOnly is set with a default of true
       };
       
       try {
@@ -61,11 +61,18 @@ const StoryWizard = () => {
       
       // Verificar o formato da resposta e construir a URL correta
       if (story && story.id) {
-        navigate(`/story/read/${story.id}`);
+        // Use setTimeout to ensure state updates are processed before navigation
+        setTimeout(() => {
+          navigate(`/story/read/${story.id}`);
+        }, 300);
       } else {
         console.error("ID da história não disponível na resposta:", story);
         toast({
-          title: "Aviso",
+          title: "Erro ao navegar",
+          description: "História criada, mas não foi possível navegar automaticamente para a leitura.",
+          variant: "destructive",
+        });
+      } "Aviso",
           description: "História criada, mas não foi possível navegar automaticamente para a leitura.",
           variant: "destructive",
         });

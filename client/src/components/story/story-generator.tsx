@@ -43,6 +43,7 @@ const StoryGenerator = ({ initialAgeGroup = "6-8" }: StoryFormProps) => {
         theme: selectedTheme,
         ageGroup,
         childName: allowPersonalization ? childName : undefined,
+        textOnly: true // Ensure text-only mode is enabled
       });
     },
     onSuccess: (data) => {
