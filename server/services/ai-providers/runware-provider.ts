@@ -192,10 +192,10 @@ export class RunwareProvider implements AIProvider {
       
       // Configure options based on params
       const requestBody: any = {
-        prompt: enhancedPrompt,
+        prompt: enhancedPrompt.substring(0, 1000), // Truncate to 1000 chars to avoid "string too long" error
         negative_prompt: negativePrompt,
-        width: 1024,
-        height: 1024,
+        width: 512, // Reduced from 1024 to improve performance
+        height: 512, // Reduced from 1024 to improve performance
         num_outputs: 1,
         seed: params.seed || Math.floor(Math.random() * 2147483647) // Use provided seed or random
       };

@@ -93,6 +93,8 @@ export interface ImageGenerationParams {
   characterDescriptions?: CharacterDescription[]; // Descrições de personagens para manter consistência
   storyId?: number; // ID da história para rastreamento de consistência
   chapterId?: number; // ID do capítulo para progressão
+  textOnly?: boolean; // Opção para histórias apenas em texto, sem ilustrações
+  provider?: string; // Provider específico a ser usado (opcional)
 }
 
 // Descrição de personagem para consistência visual

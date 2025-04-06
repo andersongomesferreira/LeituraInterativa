@@ -163,12 +163,12 @@ export class GetImgProvider implements AIProvider {
       
       // Configure options based on params
       const requestBody = {
-        model: "sdxl-lightning", // Using faster, more reliable model, alternative: "sdxl", "stable-diffusion-v1-5"
-        prompt: enhancedPrompt,
+        model: "stable-diffusion-v1-5", // Changed from "sdxl-lightning" to use a standard model that's more widely supported
+        prompt: enhancedPrompt.substring(0, 1000), // Truncate to 1000 chars to avoid "string too long" error
         negative_prompt: negativePrompt,
-        width: 1024,
-        height: 1024,
-        steps: 25,        // Reduced for better reliability
+        width: 512, // Reduced from 1024 to improve performance
+        height: 512, // Reduced from 1024 to improve performance 
+        steps: 20,  // Reduced for better reliability
         guidance: 7.5,
         seed: params.seed || Math.floor(Math.random() * 2147483647), // Use provided seed or random
         scheduler: "ddim", // More reliable scheduler, alternative: "dpmsolver++"

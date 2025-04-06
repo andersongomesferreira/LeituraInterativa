@@ -411,6 +411,19 @@ export class AIProviderManager {
   async generateImage(params: ImageGenerationParams, userTier: string = 'free'): Promise<ImageGenerationResult> {
     console.log(`Generating image for prompt: "${params.prompt.substring(0, 50)}..." with tier: ${userTier}`);
     
+    // Check if text-only mode is enabled - skip image generation entirely
+    if (params.textOnly === true) {
+      console.log('Text-only mode enabled, skipping image generation');
+      return {
+        success: true,
+        imageUrl: '', // Empty URL for text-only mode
+        provider: 'none',
+        model: 'none',
+        isBackup: false,
+        metadata: { textOnly: true }
+      };
+    }
+    
     // Get allowed providers for user tier
     const tierConfig = this.routingConfig.userTierLimits[userTier] || this.routingConfig.userTierLimits.free;
     const allowedProviderIds = tierConfig.allowedProviders;

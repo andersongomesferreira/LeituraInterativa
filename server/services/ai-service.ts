@@ -13,6 +13,7 @@ export interface StoryParams {
   ageGroup: string;
   childName?: string;
   complexityLevel?: 'low' | 'medium' | 'high';
+  textOnly?: boolean; // Opção para gerar histórias sem ilustrações
 }
 
 // História gerada
@@ -133,7 +134,7 @@ export function extractChapters(content: string): Chapter[] {
 
 // Função para gerar uma história utilizando o provedor mais adequado
 export async function generateStory(params: StoryParams, userTier: string = "free"): Promise<GeneratedStory> {
-  const { characters, theme, ageGroup, childName } = params;
+  const { characters, theme, ageGroup, childName, textOnly } = params;
   
   let ageAppropriateInstructions = "";
   let vocabularyLevel = "";
@@ -259,6 +260,7 @@ export async function generateImage(
     ageGroup?: "3-5" | "6-8" | "9-12";
     provider?: string; // Provedor específico a ser usado (opcional)
     seed?: number; // Seed para resultados consistentes (opcional)
+    textOnly?: boolean; // Opção para histórias sem ilustrações
     characterDescriptions?: Array<{
       name: string;
       appearance?: string;
@@ -324,7 +326,8 @@ export async function generateImage(
       ageGroup: options.ageGroup,
       seed: options.seed,
       provider: options.provider,
-      characterDescriptions: options.characterDescriptions
+      characterDescriptions: options.characterDescriptions,
+      textOnly: options.textOnly === true // Suporte para histórias apenas com texto
     };
     
     // Usar nosso gerenciador de provedores para escolher o melhor provedor
@@ -460,6 +463,7 @@ export async function generateChapterImage(
     ageGroup?: "3-5" | "6-8" | "9-12";
     storyId?: number; // ID da história para consistência
     chapterId?: number; // ID/número do capítulo para progressão
+    textOnly?: boolean; // Opção para histórias sem ilustrações
     characterDescriptions?: any[]; // Descrições detalhadas de personagens
   } = {},
   userTier: string = "free"
@@ -560,7 +564,8 @@ export async function generateChapterImage(
   return generateImage(scenePrompt, {
     ...options,
     style: "cartoon",
-    mood: options.mood || "adventure"
+    mood: options.mood || "adventure",
+    textOnly: options.textOnly
   }, userTier);
 }
 

@@ -25,6 +25,8 @@ interface GenerateImageOptions {
   // Novos parâmetros para consistência de personagens
   storyId?: number;
   chapterId?: number;
+  textOnly?: boolean; // Opção para histórias apenas em texto, sem ilustrações
+  provider?: string; // Provedor específico a ser usado (opcional)
   characterDescriptions?: Array<{
     name: string;
     appearance?: string;
@@ -354,7 +356,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         characters: characterNames,
         theme: themeData.name,
         ageGroup,
-        childName
+        childName,
+        textOnly: !!textOnly // Convert to boolean in case it's undefined
       });
       
       // Save story to database
