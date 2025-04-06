@@ -7,9 +7,17 @@ import {
   generateImage, 
   generateCharacterImage, 
   generateChapterImage,
-  extractChapters, 
-  GenerateImageOptions 
-} from "./services/openai";
+  extractChapters
+} from "./services/ai-service";
+
+// Tipo para opções de geração de imagens
+interface GenerateImageOptions {
+  style?: "cartoon" | "watercolor" | "pencil" | "digital";
+  mood?: "happy" | "adventure" | "calm" | "exciting";
+  backgroundColor?: string;
+  characterStyle?: "cute" | "funny" | "heroic";
+  ageGroup?: "3-5" | "6-8" | "9-12";
+}
 import { insertUserSchema, insertChildProfileSchema, insertStorySchema, insertReadingSessionSchema } from "@shared/schema";
 import { z } from "zod";
 import session from "express-session";
@@ -24,6 +32,8 @@ declare module "express-session" {
     isAuthenticated?: boolean;
   }
 }
+
+import { getAIProvidersStatus } from "./services/ai-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -686,6 +696,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const plans = await storage.getAllSubscriptionPlans();
       res.json(plans);
     } catch (error) {
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  
+  // Endpoint para verificar o status dos provedores de IA
+  app.get("/api/ai-providers/status", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      // Verificar se o usuário é admin (somente admins podem ver o status detalhado)
+      const isAdmin = user.role === "admin";
+      
+      if (!isAdmin) {
+        return res.status(403).json({ message: "Acesso negado. Somente administradores podem acessar esta informação." });
+      }
+      
+      const providersStatus = getAIProvidersStatus();
+      res.json(providersStatus);
+    } catch (error) {
+      console.error("Erro ao obter status dos provedores de IA:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
