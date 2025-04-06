@@ -130,6 +130,7 @@ export class GetImgProvider implements AIProvider {
    */
   async generateImage(params: ImageGenerationParams): Promise<ImageGenerationResult> {
     if (!this.apiKey) {
+      console.warn('GetImg.ai: API key not configured');
       return {
         success: false,
         imageUrl: '',

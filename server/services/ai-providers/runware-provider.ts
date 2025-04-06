@@ -130,6 +130,7 @@ export class RunwareProvider implements AIProvider {
    */
   async generateImage(params: ImageGenerationParams): Promise<ImageGenerationResult> {
     if (!this.apiKey) {
+      console.warn('Runware: API key not configured');
       return {
         success: false,
         imageUrl: '',

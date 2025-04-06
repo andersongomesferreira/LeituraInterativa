@@ -117,12 +117,12 @@ export interface ImageGenerationResult {
   promptUsed?: string;
   metadata?: any;
   isBackup?: boolean;
+  alternativeImages?: string[]; // For batch generation results
   
   // For error handling and provider implementation
-  success?: boolean;
+  success: boolean; // Making this required to enforce consistent error handling
   error?: string;
   details?: any;
-  alternativeImages?: string[]; // For batch generation results
 }
 
 // Configuração de roteamento para provedores
