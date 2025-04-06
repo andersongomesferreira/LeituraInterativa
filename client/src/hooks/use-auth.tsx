@@ -42,12 +42,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const loginMutation = useMutation({
-    mutationFn: async (credentials: { username: string; password: string }) => {
+    mutationFn: async (credentials: { username: string; password: string } | { identifier: string; password: string }) => {
       try {
+        // Se receber identifier em vez de username, ajustar para o formato esperado pelo backend
+        const loginData = 'identifier' in credentials 
+          ? { username: credentials.identifier, password: credentials.password }
+          : credentials;
+          
         const response = await fetch("/api/auth/login", {
           method: "POST", 
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(credentials),
+          body: JSON.stringify(loginData),
           credentials: "include"
         });
         

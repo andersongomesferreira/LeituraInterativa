@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Link } from "wouter";
 
 const loginSchema = z.object({
-  username: z.string().min(1, "Nome de usuário é obrigatório"),
+  identifier: z.string().min(1, "Nome de usuário ou email é obrigatório"),
   password: z.string().min(1, "Senha é obrigatória"),
 });
 
@@ -33,7 +33,7 @@ const LoginForm = () => {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "",
+      identifier: "",
       password: "",
     },
   });
@@ -41,8 +41,14 @@ const LoginForm = () => {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
+      // Preparar dados de login, adaptando o identifier para o formato de API
+      const loginData = {
+        username: data.identifier, // O backend espera username, mas nós aceitamos email ou username
+        password: data.password
+      };
+      
       // Usar apiRequest para padronizar o tratamento de erros
-      const response = await apiRequest("POST", "/api/auth/login", data);
+      const response = await apiRequest("POST", "/api/auth/login", loginData);
       
       const responseData = await response.json();
       
@@ -65,9 +71,9 @@ const LoginForm = () => {
     } catch (error: any) {
       console.error("Login error:", error);
       
-      let errorMessage = "Nome de usuário ou senha incorretos.";
+      let errorMessage = "Nome de usuário/email ou senha incorretos.";
       if (error.message === "Usuário não encontrado") {
-        errorMessage = "Usuário não encontrado. Verifique seu nome de usuário.";
+        errorMessage = "Usuário não encontrado. Verifique se digitou o nome de usuário corretamente.";
       } else if (error.message === "Senha incorreta") {
         errorMessage = "Senha incorreta. Tente novamente.";
       }
@@ -95,12 +101,12 @@ const LoginForm = () => {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="username"
+              name="identifier"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome de Usuário</FormLabel>
+                  <FormLabel>Nome de Usuário ou Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="Digite seu nome de usuário" {...field} />
+                    <Input placeholder="Digite seu nome de usuário ou email" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
