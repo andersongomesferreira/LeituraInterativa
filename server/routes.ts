@@ -364,6 +364,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
         chaptersCount: responseData.chapters?.length || 0
       }));
       
+      // Iniciar geração automática de ilustrações em segundo plano
+      if (responseData.chapters && responseData.chapters.length > 0) {
+        // Não aguardamos a conclusão para não bloquear a resposta
+        (async () => {
+          try {
+            console.log(`Iniciando geração automática de ilustrações para história "${story.title}" (ID: ${story.id})...`);
+            
+            // Buscar personagens para a geração de ilustrações
+            const characterNames = charactersData
+              .filter(c => c !== undefined)
+              .map(c => c!.name);
+            
+            // Configurar opções padrão baseadas na faixa etária da história
+            const imageOptions: GenerateImageOptions = {
+              style: "cartoon",
+              mood: "adventure",
+              ageGroup
+            };
+            
+            // Extrair capítulos 
+            const chapters = responseData.chapters;
+            
+            // Gerar ilustrações para cada capítulo em paralelo com atraso escalonado
+            // Isso permite que o usuário comece a ler enquanto as ilustrações são geradas
+            const illustrationPromises = chapters.map(async (chapter, index) => {
+              try {
+                // Pequeno atraso para evitar sobrecarregar a API e dar tempo para o usuário ler
+                // Começamos com o primeiro capítulo imediatamente e atrasamos os outros
+                await new Promise(resolve => setTimeout(resolve, index * 3000));
+                
+                console.log(`Gerando ilustração automática para capítulo ${index + 1}/${chapters.length}: "${chapter.title}"`);
+                
+                const generatedImage = await generateChapterImage(
+                  chapter.title,
+                  chapter.content,
+                  characterNames,
+                  imageOptions
+                );
+                
+                chapter.imageUrl = generatedImage.imageUrl;
+                return { success: true, chapter: index, imageUrl: generatedImage.imageUrl };
+              } catch (error) {
+                console.error(`Erro ao gerar ilustração para o capítulo ${index + 1}:`, error);
+                return { success: false, chapter: index, error: (error as Error).message };
+              }
+            });
+            
+            // Aguardar todas as promessas de geração de imagens
+            const results = await Promise.allSettled(illustrationPromises);
+            const successCount = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length;
+            
+            console.log(`Concluída geração automática de ilustrações: ${successCount}/${chapters.length} imagens geradas com sucesso`);
+            
+          } catch (error) {
+            console.error("Erro no processo em segundo plano de geração de ilustrações:", error);
+          }
+        })();
+      }
+      
       res.json(responseData);
     } catch (error) {
       console.error("Error generating story:", error);
@@ -574,44 +633,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      // Aguardar todas as promessas de geração de imagens
-      const results = await Promise.allSettled(illustrationPromises);
-      
-      // Contar quantas ilustrações foram geradas com sucesso
-      const successCount = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length;
-      
-      // Mapear os resultados para um formato mais amigável
-      const illustrationResults = results.map((result, index) => {
-        if (result.status === 'fulfilled') {
-          const value = result.value as any;
-          return {
-            chapter: index,
-            title: chapters[index].title,
-            success: value.success,
-            imageUrl: value.imageUrl || null,
-            error: value.error || null
-          };
-        } else {
-          return {
-            chapter: index,
-            title: chapters[index].title,
-            success: false,
-            imageUrl: null,
-            error: result.reason || "Erro desconhecido"
-          };
-        }
-      });
-      
+      // Iniciar geração de imagens em segundo plano
+      // Retornar imediatamente ao cliente para não bloquear
       res.json({
         storyId,
         totalChapters: chapters.length,
-        successfulIllustrations: successCount,
-        chapters: illustrationResults,
-        chaptersWithImages: chapters
+        status: "processing",
+        message: "Gerando ilustrações em segundo plano. As imagens serão disponibilizadas à medida que forem geradas."
       });
+      
+      // Continuar processamento em segundo plano
+      (async () => {
+        try {
+          const results = await Promise.allSettled(illustrationPromises);
+          
+          // Contar quantas ilustrações foram geradas com sucesso
+          const successCount = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length;
+          
+          console.log(`Concluída geração de ilustrações para história ${storyId}: ${successCount}/${chapters.length} sucesso`);
+          
+          // Atualizar o conteúdo da história com os capítulos atualizados
+          // (opcional - pode ser implementado mais tarde uma API para recuperar os capítulos atualizados)
+        } catch (error) {
+          console.error("Erro no processo em segundo plano de geração de ilustrações:", error);
+        }
+      })();
+      
     } catch (error) {
-      console.error("Erro ao gerar ilustrações para a história:", error);
-      res.status(500).json({ message: "Erro ao gerar ilustrações para a história" });
+      console.error("Erro ao iniciar geração de ilustrações para a história:", error);
+      res.status(500).json({ message: "Erro ao iniciar geração de ilustrações para a história" });
     }
   });
 

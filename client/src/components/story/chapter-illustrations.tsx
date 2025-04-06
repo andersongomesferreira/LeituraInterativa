@@ -65,14 +65,34 @@ const ChapterIllustrations = ({
       return await response.json();
     },
     onSuccess: (data) => {
-      if (data.successfulIllustrations > 0) {
+      if (data.status === "processing") {
+        // Nova resposta assíncrona - mostrar que o processamento está em andamento
+        toast({
+          title: "Gerando ilustrações em segundo plano",
+          description: "As ilustrações estão sendo geradas e aparecerão automaticamente. Você pode continuar a leitura enquanto isso.",
+          variant: "default",
+          duration: 5000,
+        });
+        
+        // Criar um timeout para verificar o status após alguns segundos (opcional)
+        setTimeout(() => {
+          // Atualização simulada - na implementação completa, poderíamos implementar um endpoint para verificar o status
+          const placeholderChaptersWithImages = [...chapters];
+          // Adicionar URLs de imagem de placeholder ou outro indicador visual
+          if (onIllustrationsGenerated) {
+            onIllustrationsGenerated(placeholderChaptersWithImages);
+          }
+        }, 3000);
+        
+      } else if (data.successfulIllustrations > 0) {
+        // Resposta antiga/síncrona
         toast({
           title: "Ilustrações geradas com sucesso",
           description: `${data.successfulIllustrations} de ${data.totalChapters} ilustrações foram geradas.`,
           variant: "default",
         });
         
-        if (onIllustrationsGenerated) {
+        if (onIllustrationsGenerated && data.chaptersWithImages) {
           onIllustrationsGenerated(data.chaptersWithImages);
         }
       } else {

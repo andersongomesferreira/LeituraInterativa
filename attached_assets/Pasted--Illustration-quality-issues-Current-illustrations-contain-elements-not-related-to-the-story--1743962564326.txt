@@ -1,0 +1,51 @@
+. Illustration quality issues:
+   - Current illustrations contain elements not related to the story
+   - Need simpler illustrations but must include all chapter characteristics
+
+2. Illustration generation process:
+   - Generate illustrations in the background automatically
+   - No need for the child to click to generate them
+   - Show a loading bar while the child reads the first chapter
+   - Make this process feel natural
+
+3. Cost optimization:
+   - Use GPT-3.5 or cheaper alternatives for text generation
+   - For images, automatically validate and use the cheapest available option at the time
+
+Let me structure a response that addresses these requirements clearly and concisely, focusing on technical implementation and user experience considerations.
+
+# LeiturinhaBot - Illustration & Cost Optimization Update
+
+## Illustration Refinement
+- Simplify illustrations to focus only on relevant story elements
+- Ensure all key chapter characteristics are included in each drawing
+- Remove extraneous visual elements not mentioned in the story text
+- Implement content validation to verify illustration-story alignment
+
+## Background Generation Process
+- Automatically generate all chapter illustrations in background threads
+- Implement progressive loading while child reads first chapter
+- Display subtle loading bar indicator showing illustration progress
+- Pre-cache next chapter illustrations during reading time
+- Create seamless visual transition between text and appearing illustrations
+
+## Cost Optimization Implementation
+- **Text Generation**:
+  - Default to OpenAI GPT-3.5 for all story generation
+  - Implement alternative providers (Mistral, Llama) as backup options
+  - Create real-time cost comparison service to select cheapest provider
+  - Cache common story patterns to reduce API calls
+
+- **Image Generation**:
+  - Implement dynamic provider selection based on current pricing
+  - Automated cost-checking before each illustration request
+  - Prioritize order: Self-hosted SD → Canva → DALL-E → Others
+  - Daily rate checking to respond to pricing changes
+  - Implement simple style templates to reduce token usage
+
+## Technical Implementation
+- Create background worker service for non-blocking illustration generation
+- Implement WebSocket for real-time progress updates
+- Develop provider cost API to check current rates across services
+- Add illustration quality validation to ensure minimum standards
+- Create adaptive loading animation based on estimated generation time

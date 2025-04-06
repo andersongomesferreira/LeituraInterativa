@@ -369,15 +369,23 @@ const StoryReader = ({ storyId, childId }: StoryReaderProps) => {
                   </div>
                 </div>
               ) : (
-                <div className="mb-6 flex items-center justify-center border border-dashed border-muted-foreground/50 h-64 rounded-lg">
-                  <Button
-                    variant="ghost"
-                    className="flex flex-col gap-2 h-auto p-6"
-                    onClick={generateCurrentChapterImage}
-                  >
-                    <Image className="h-10 w-10 text-primary/60" />
-                    <span className="text-muted-foreground">Clique para gerar uma ilustração</span>
-                  </Button>
+                <div className="mb-6 flex items-center justify-center bg-muted/30 border border-dashed border-muted-foreground/50 h-64 rounded-lg">
+                  <div className="text-center space-y-3">
+                    <div className="relative w-full h-2 bg-muted rounded-full overflow-hidden mb-2">
+                      <div className="absolute inset-0 bg-primary/20 w-full h-full opacity-20"></div>
+                      <div className="absolute top-0 left-0 bg-primary h-full w-1/3 rounded-full animate-pulse"></div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Ilustração sendo gerada automaticamente...</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={generateCurrentChapterImage}
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Gerar agora
+                    </Button>
+                  </div>
                 </div>
               )}
               

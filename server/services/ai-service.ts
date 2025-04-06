@@ -337,34 +337,49 @@ export async function generateChapterImage(
   } = {},
   userTier: string = "free"
 ): Promise<GeneratedImage> {
-  // Extrair os elementos principais do capítulo para criar um prompt mais detalhado
-  const contentSummary = chapterContent.length > 300 
-    ? chapterContent.substring(0, 300) 
+  // Extrair elementos essenciais da história para incluir apenas coisas relevantes
+  // Usamos um conteúdo mais curto para manter a ilustração mais focada
+  const contentSummary = chapterContent.length > 200 
+    ? chapterContent.substring(0, 200) 
     : chapterContent;
+  
+  // Extrair principais elementos do conteúdo para criar palavras-chave
+  const keyElements = extractKeyElements(chapterContent, chapterTitle);
   
   // Criar uma lista de personagens para incluir na ilustração
   const charactersList = characters.length > 0 
     ? `Personagens principais na cena: ${characters.join(", ")}.` 
     : "";
   
+  // Prompt mais estruturado para limitar elementos da cena e garantir relevância
   const scenePrompt = `
     Ilustração de cena para livro infantil do capítulo "${chapterTitle}".
     
-    Cena a ilustrar: ${contentSummary}
+    ELEMENTOS A INCLUIR (SOMENTE ESTES, NÃO ADICIONE OUTROS ELEMENTOS):
+    - ${keyElements.join("\n    - ")}
     
     ${charactersList}
     
+    DIRETRIZES DE QUALIDADE E RELEVÂNCIA (EXTREMAMENTE IMPORTANTES):
+    - A ilustração DEVE se concentrar EXCLUSIVAMENTE nos elementos listados acima.
+    - É EXPRESSAMENTE PROIBIDO adicionar elementos não mencionados no texto do capítulo.
+    - RESTRINGIR-SE aos elementos listados acima é essencial para a qualidade da ilustração.
+    - A ilustração deve ser EXTREMAMENTE simples e clara, com poucos elementos.
+    - Certifique-se que cada elemento da ilustração se relaciona diretamente ao texto.
+    - A cena deve parecer coerente e conectada à história, sem elementos estranhos ou desconexos.
+    
     ESPECIFICAÇÕES VISUAIS OBRIGATÓRIAS:
     - Estilo: Cartoon infantil com contornos grossos e pretos bem definidos
-    - Composição: Cena inteira mostrando personagens interagindo no ambiente
-    - Visual: Colorido, expressivo, exagerado (estilo cartoon)
-    - Cores: Vibrantes, alegres, saturadas
-    - Fundo: Cenário simplificado mas reconhecível, sem detalhes excessivos
-    - Proporções: Personagens com cabeças grandes e expressões exageradas
+    - Visual: Extremamente simplificado, limpo, com poucos elementos visuais
+    - Cores: Vibrantes, alegres, paleta limitada (max 5-6 cores)
+    - Fundo: Minimalista, com poucos detalhes, apenas o essencial para a cena
+    - Proporções: Personagens com cabeças grandes e expressões claras e simples
     
-    A ilustração deve ser desenhada no estilo de desenho animado para crianças da faixa etária ${options.ageGroup || "6-8"} anos.
-    Deve ser EXTREMAMENTE cartunizada - nada de realismo ou fotorrealismo.
-    Use um estilo de desenho BIDIMENSIONAL com cores planas, sem sombreamento complexo.
+    REQUISITOS CRÍTICOS:
+    - A ilustração deve ser para crianças da faixa etária ${options.ageGroup || "6-8"} anos.
+    - Deve ser EXTREMAMENTE cartunizada - nada de realismo ou fotorrealismo.
+    - Use um estilo de desenho BIDIMENSIONAL com cores planas, sem sombreamento complexo.
+    - A CONSISTÊNCIA com os elementos da história é o fator mais importante para gerar uma boa ilustração.
   `;
   
   return generateImage(scenePrompt, {
@@ -372,6 +387,119 @@ export async function generateChapterImage(
     style: "cartoon",
     mood: options.mood || "adventure"
   }, userTier);
+}
+
+// Função auxiliar para extrair elementos-chave do texto do capítulo
+function extractKeyElements(content: string, title: string): string[] {
+  // Lista de palavras-chave que provavelmente são elementos visuais importantes
+  const visualElementKeywords = [
+    'animal', 'árvore', 'floresta', 'casa', 'castelo', 'rio', 'mar', 'montanha',
+    'céu', 'lago', 'campo', 'cidade', 'rua', 'parque', 'escola', 'quarto', 'sala',
+    'jardim', 'praia', 'caminho', 'ponte', 'porta', 'janela', 'sol', 'lua', 'estrela',
+    'nuvem', 'chuva', 'neve', 'dia', 'noite', 'carro', 'bicicleta', 'barco', 'trem',
+    'brinquedo', 'livro', 'bola', 'cadeira', 'mesa', 'cama', 'roupa', 'chapéu', 'comida',
+    'fruta', 'água', 'fogo', 'planta', 'flor', 'grama',
+    // Adicionados mais elementos comuns em histórias infantis brasileiras
+    'mato', 'bicho', 'caverna', 'poço', 'rio', 'trilha', 'mochila', 'lanterna',
+    'fazenda', 'sítio', 'chácara', 'quintal', 'balanço', 'escorregador', 'pipa',
+    'bola', 'futebol', 'boneca', 'carrinho', 'lápis', 'desenho', 'pintura'
+  ];
+  
+  // Normaliza o texto para facilitar a busca por correspondências
+  const normalizedContent = content.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // Remove acentos
+  
+  // Construir elementos-chave a partir do título
+  const elements = [
+    `Cena principal do capítulo "${title}"`
+  ];
+  
+  // Adicionar personagens que parecem importantes
+  const sentences = content.split(/[.!?]+/);
+  const mentionedNames = new Set<string>();
+  
+  for (const sentence of sentences) {
+    // Buscar nomes próprios (começam com maiúscula)
+    const nameMatches = sentence.match(/\b[A-Z][a-zÀ-ÿ]+\b/g) || [];
+    nameMatches.forEach(name => {
+      // Filtrar possíveis falsos positivos (palavras no início da frase)
+      if (sentence.trim().startsWith(name)) {
+        // Verificar se a palavra antes ou depois é um indicador de nome próprio
+        const prevNextWords = sentence.match(new RegExp(`(\\w+\\s+)?${name}(\\s+\\w+)?`, 'i'));
+        if (prevNextWords && prevNextWords[0]) {
+          const context = prevNextWords[0].toLowerCase();
+          // Verificar se parece ser realmente um nome próprio
+          if (!context.includes('quando') && !context.includes('porque') && 
+              !context.includes('então') && !context.includes('depois')) {
+            mentionedNames.add(name);
+          }
+        }
+      } else {
+        // Se não está no início da frase, é mais provável ser um nome próprio
+        mentionedNames.add(name);
+      }
+    });
+  }
+  
+  // Identificar elementos visuais específicos do texto
+  const visualElements = new Set<string>();
+  visualElementKeywords.forEach(keyword => {
+    // Buscar a palavra-chave e incluir contexto (palavra anterior e posterior)
+    const keywordRegex = new RegExp(`\\b(\\w+\\s+)?${keyword}(\\s+\\w+)?\\b`, 'gi');
+    const matches = content.match(keywordRegex) || [];
+    
+    matches.forEach(match => {
+      // Limpar e adicionar o elemento visual detectado
+      const cleanElement = match.trim().toLowerCase();
+      if (cleanElement.length > 3) { // Evitar elementos muito curtos
+        visualElements.add(cleanElement);
+      }
+    });
+  });
+  
+  // Extrair 3-4 frases curtas que descrevem a cena principal, com preferência para frases com elementos visuais
+  let bestSentences = sentences
+    .filter(s => s.length > 10 && s.length < 100) // Sentenças de tamanho médio
+    .filter(s => {
+      const normalizedS = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return visualElementKeywords.some(keyword => normalizedS.includes(keyword.toLowerCase()));
+    })
+    .slice(0, 4);
+  
+  // Adicionar personagens e frases relevantes aos elementos
+  if (mentionedNames.size > 0) {
+    elements.push(`Personagens visíveis na cena: ${Array.from(mentionedNames).join(", ")}`);
+  }
+  
+  // Adicionar elementos visuais específicos identificados
+  if (visualElements.size > 0) {
+    const topVisualElements = Array.from(visualElements).slice(0, 5);
+    elements.push(`Elementos específicos da cena: ${topVisualElements.join(", ")}`);
+  }
+  
+  // Adicionar frases descritivas relevantes
+  bestSentences.forEach(sentence => {
+    const cleanSentence = sentence.trim();
+    if (cleanSentence) {
+      // Verificar se a frase parece descrever uma cena visual
+      if (visualElementKeywords.some(keyword => cleanSentence.toLowerCase().includes(keyword))) {
+        elements.push(`Cena descrita: ${cleanSentence}`);
+      }
+    }
+  });
+  
+  // Se não temos elementos suficientes, adicionar algumas frases do início do texto
+  if (elements.length < 4) {
+    const firstParagraph = content.split('\n')[0].trim();
+    elements.push(`Cenário principal: ${firstParagraph.substring(0, 100)}`);
+  }
+  
+  // Garantir que temos pelo menos 3 elementos
+  while (elements.length < 3) {
+    elements.push(`Elementos visuais simples baseados no título "${title}"`);
+  }
+  
+  return elements;
 }
 
 // Função para gerar áudio a partir de texto (mantém a implementação existente)

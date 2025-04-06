@@ -24,7 +24,7 @@ const DEFAULT_ROUTING_CONFIG: ProviderRoutingConfig = {
   routingPreferences: {
     prioritizeAvailability: true,
     prioritizeResponseTime: true,
-    prioritizeCost: false,
+    prioritizeCost: true, // Agora priorizamos custo por padrão
     prioritizeQuality: true
   },
   
@@ -309,34 +309,51 @@ export class AIProviderManager {
     // Avaliar com base na qualidade (preferência por modelos específicos)
     if (prioritizeQuality) {
       if (serviceType === "text") {
+        // Para geração de texto, preferir GPT-3.5 para histórias básicas (mais barato e rápido)
+        // e Claude/GPT-4 apenas para conteúdo que requer maior complexidade
+        if (providers.includes("openai")) {
+          // GPT-3.5 é bom o suficiente para histórias infantis padrão
+          scores.set("openai", scores.get("openai")! + 2);
+        }
+        
         // Adicionar pontos por capacidade de contexto maior
         for (const id of providers) {
           const provider = this.providers.get(id);
           if (provider?.capabilities.maxContextLength && provider.capabilities.maxContextLength > 100000) {
-            scores.set(id, scores.get(id)! + 2);
+            scores.set(id, scores.get(id)! + 1); // Menos peso do que antes
           }
         }
-        
-        // Preferência de modelos por qualidade percebida
-        const qualityRanking = ["openai", "anthropic"];
-        qualityRanking.forEach((id, index) => {
-          if (providers.includes(id)) {
-            scores.set(id, scores.get(id)! + (qualityRanking.length - index));
-          }
-        });
       } else if (serviceType === "image") {
-        // Para imagens, OpenAI DALL-E é geralmente superior
-        if (providers.includes("openai")) {
-          scores.set("openai", scores.get("openai")! + 3);
+        // Para imagens, qualquer provedor que possa gerar imagens adequadas para crianças
+        // com ilustrações claras e simples é bom o suficiente
+        for (const id of providers) {
+          if (id === "openai") {
+            // DALL-E tem boas capacidades para ilustrações infantis
+            scores.set(id, scores.get(id)! + 2);
+          }
         }
       }
     }
     
-    // Avaliar com base no custo (simples para agora)
-    if (prioritizeCost) {
-      // Anthropic geralmente é mais barato
-      if (providers.includes("anthropic") && serviceType === "text") {
-        scores.set("anthropic", scores.get("anthropic")! + 2);
+    // Avaliar com base no custo (agora com maior prioridade)
+    if (prioritizeCost || serviceType === "image") { // Sempre considerar custo para imagens
+      // Pontuação de custo dinamicamente calculada
+      const costScore = (id: string): number => {
+        // Valores aproximados de custo por API
+        switch (id) {
+          case "anthropic":
+            return serviceType === "text" ? 3 : 0; // Melhor pontuação para texto, não gera imagem
+          case "openai":
+            return serviceType === "text" ? 2 : 2; // GPT-3.5 é mais barato que GPT-4, DALL-E é razoável
+          default:
+            return 1;
+        }
+      };
+      
+      // Aplicar pontuação de custo a cada provedor
+      for (const id of providers) {
+        const currentScore = scores.get(id) || 0;
+        scores.set(id, currentScore + costScore(id) * (prioritizeCost ? 3 : 1));
       }
     }
     
