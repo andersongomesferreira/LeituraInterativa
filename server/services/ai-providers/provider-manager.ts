@@ -330,8 +330,11 @@ export class AIProviderManager {
   
   /**
    * Generates text using the optimal provider based on routing config
+   * Enhanced with better fallback provider handling and detailed logging
    */
   async generateText(params: TextGenerationParams, userTier: string = 'free'): Promise<TextGenerationResult> {
+    console.log(`Generating text with tier: ${userTier}`);
+    
     // Get allowed providers for user tier
     const tierConfig = this.routingConfig.userTierLimits[userTier] || this.routingConfig.userTierLimits.free;
     const allowedProviderIds = tierConfig.allowedProviders;
@@ -341,8 +344,30 @@ export class AIProviderManager {
       .filter(p => p.capabilities.textGeneration && allowedProviderIds.includes(p.id))
       .filter(p => p.status.isAvailable);
     
+    console.log(`Found ${textProviders.length} available text providers for tier ${userTier}: ${textProviders.map(p => p.id).join(', ')}`);
+    
     if (textProviders.length === 0) {
-      throw new Error('No available text generation providers');
+      // Force refresh the status of all providers to make sure we have the latest
+      await this.checkAllProvidersHealth();
+      
+      // Try again after health check
+      const refreshedProviders = Array.from(this.providers.values())
+        .filter(p => p.capabilities.textGeneration && allowedProviderIds.includes(p.id))
+        .filter(p => p.status.isAvailable);
+      
+      console.log(`After health refresh, found ${refreshedProviders.length} available text providers: ${refreshedProviders.map(p => p.id).join(', ')}`);
+      
+      if (refreshedProviders.length === 0) {
+        // Check OpenAI specifically since it's our primary provider
+        const openaiProvider = this.providers.get('openai');
+        if (openaiProvider) {
+          console.log(`OpenAI status: available=${openaiProvider.status.isAvailable}, message=${openaiProvider.status.statusMessage || 'none'}`);
+        }
+        
+        throw new Error('No available text generation providers');
+      }
+      
+      textProviders.push(...refreshedProviders);
     }
     
     // Start with default provider
@@ -350,16 +375,25 @@ export class AIProviderManager {
     
     // If default provider is not available or not allowed, use the first available
     if (!selectedProvider || !selectedProvider.status.isAvailable || !allowedProviderIds.includes(selectedProvider.id)) {
+      console.log(`Default text provider ${this.routingConfig.defaultTextProvider} not available or allowed, using ${textProviders[0].id} instead`);
       selectedProvider = textProviders[0];
+    } else {
+      console.log(`Using default text provider: ${selectedProvider.id}`);
     }
+    
+    // List of providers we've already tried
+    const triedProviders = new Set<string>();
     
     // Try with the selected provider
     try {
+      triedProviders.add(selectedProvider.id);
+      
       // Update metrics
       const providerMetrics = this.metrics.get(selectedProvider.id) || { success: 0, total: 0 };
       providerMetrics.total++;
       this.metrics.set(selectedProvider.id, providerMetrics);
       
+      console.log(`Attempting text generation with ${selectedProvider.id}...`);
       const result = await selectedProvider.generateText(params);
       
       // Update success metrics

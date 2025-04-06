@@ -196,43 +196,62 @@ export async function generateStory(params: StoryParams, userTier: string = "fre
       format: "markdown"
     };
     
-    // Usar nosso gerenciador de provedores para escolher o melhor provedor
-    const result = await aiProviderManager.generateText(textParams, userTier);
-    const content = result.content;
-    
-    // Extrair o título usando regex (# Título)
-    const titleMatch = content.match(/# (.*?)(\n|$)/);
-    const title = titleMatch ? titleMatch[1].trim() : "Aventura Mágica";
-    
-    console.log(`Story generated successfully: "${title}" using provider: ${result.provider}`);
-    
-    // Extrair o resumo da história (texto entre o título e o primeiro capítulo)
-    let summary = "";
-    const firstChapterIndex = content.indexOf("## ");
-    if (firstChapterIndex > 0 && titleMatch) {
-      const titleEndIndex = content.indexOf("\n", content.indexOf(titleMatch[0])) + 1;
-      const introText = content.substring(titleEndIndex, firstChapterIndex).trim();
-      // Limitar o resumo a 1-2 frases
-      const sentences = introText.split(/[.!?]+/).filter(s => s.trim().length > 0);
-      summary = sentences.slice(0, Math.min(2, sentences.length)).join(". ") + ".";
-    } else {
-      summary = `Uma história sobre ${theme}`;
+    try {
+      // Before trying to generate, check the provider status
+      await aiProviderManager.checkAllProvidersHealth();
+      
+      // Usar nosso gerenciador de provedores para escolher o melhor provedor
+      const result = await aiProviderManager.generateText(textParams, userTier);
+      const content = result.content;
+      
+      // Extrair o título usando regex (# Título)
+      const titleMatch = content.match(/# (.*?)(\n|$)/);
+      const title = titleMatch ? titleMatch[1].trim() : "Aventura Mágica";
+      
+      console.log(`Story generated successfully: "${title}" using provider: ${result.provider}`);
+      
+      // Extrair o resumo da história (texto entre o título e o primeiro capítulo)
+      let summary = "";
+      const firstChapterIndex = content.indexOf("## ");
+      if (firstChapterIndex > 0 && titleMatch) {
+        const titleEndIndex = content.indexOf("\n", content.indexOf(titleMatch[0])) + 1;
+        const introText = content.substring(titleEndIndex, firstChapterIndex).trim();
+        // Limitar o resumo a 1-2 frases
+        const sentences = introText.split(/[.!?]+/).filter(s => s.trim().length > 0);
+        summary = sentences.slice(0, Math.min(2, sentences.length)).join(". ") + ".";
+      } else {
+        summary = `Uma história sobre ${theme}`;
+      }
+      
+      // Extrair capítulos da história
+      const chapters = extractChapters(content);
+      
+      // Calcular tempo de leitura estimado (1 palavra = ~0.3 segundos em média)
+      const wordCount = content.split(/\s+/).length;
+      const readingTime = Math.ceil(wordCount / 200); // ~200 palavras por minuto
+      
+      return {
+        title,
+        content,
+        summary,
+        readingTime,
+        chapters
+      };
+    } catch (aiError) {
+      console.error("AI service error generating story:", aiError);
+      
+      // Use a fallback template-based story generator if AI fails
+      console.log("Using fallback story generation method due to AI service error");
+      
+      // Create a fallback story without using AI
+      return generateFallbackStory({
+        characters,
+        theme,
+        ageGroup,
+        childName,
+        textOnly
+      });
     }
-    
-    // Extrair capítulos da história
-    const chapters = extractChapters(content);
-    
-    // Calcular tempo de leitura estimado (1 palavra = ~0.3 segundos em média)
-    const wordCount = content.split(/\s+/).length;
-    const readingTime = Math.ceil(wordCount / 200); // ~200 palavras por minuto
-    
-    return {
-      title,
-      content,
-      summary,
-      readingTime,
-      chapters
-    };
   } catch (error: any) {
     console.error("Error generating story:", error);
     
@@ -715,6 +734,140 @@ export async function generateAudioFromText(text: string, userTier: string = "pl
     console.error("Error generating audio:", error);
     throw new Error("Não foi possível gerar o áudio. Por favor, tente novamente.");
   }
+}
+
+/**
+ * Fallback story generator when AI services are unavailable
+ * Uses predefined templates instead of AI generation
+ */
+function generateFallbackStory(params: StoryParams): GeneratedStory {
+  const { characters, theme, ageGroup, childName, textOnly } = params;
+  
+  // Create a title based on theme and characters
+  const title = `A Aventura de ${characters[0]} e ${characters.length > 1 ? characters[1] : 'Amigos'}: ${theme}`;
+  
+  // Create chapter titles
+  const chapterTitles = [
+    `O Início da Jornada`,
+    `Descobrindo ${theme}`,
+    `Um Novo Desafio`,
+    `Superando Obstáculos`,
+    `A Grande Descoberta`
+  ];
+  
+  // Basic content templates based on age group
+  let contentStyle = '';
+  let paragraphLength = 2;
+  
+  switch (ageGroup) {
+    case '3-5':
+      contentStyle = 'simples e curta';
+      paragraphLength = 2;
+      break;
+    case '6-8':
+      contentStyle = 'divertida e educativa';
+      paragraphLength = 3;
+      break;
+    case '9-12':
+      contentStyle = 'aventureira e interessante';
+      paragraphLength = 4;
+      break;
+    default:
+      contentStyle = 'educativa';
+      paragraphLength = 3;
+  }
+  
+  // Create basic chapter contents
+  const chapters: Chapter[] = chapterTitles.map((chapterTitle, i) => {
+    // Basic content template for each chapter - this is just a simple template
+    // that will only be used when actual AI generation fails
+    let content = '';
+    
+    // First paragraph - introduction to the characters
+    if (i === 0) {
+      content += `Era uma vez, ${characters.join(' e ')} que estavam explorando o mundo de ${theme}. `;
+      content += childName ? `${childName} assistia com entusiasmo enquanto ` : '';
+      content += `${characters[0]} liderava o caminho com muita curiosidade.\n\n`;
+      
+      content += `"Vamos descobrir o que há pela frente!", disse ${characters[0]} com entusiasmo. `;
+      content += characters.length > 1 ? `"Estou com você!", respondeu ${characters[1]}.\n\n` : '\n\n';
+      
+      content += `E assim começou uma grande aventura ${contentStyle}. Os amigos caminhavam juntos, `;
+      content += `observando cada detalhe daquele lugar incrível.`;
+    } 
+    // Discovery chapter
+    else if (i === 1) {
+      content += `Enquanto caminhavam, ${characters[0]} apontou para algo interessante. `;
+      content += `"Olhem! É um ${theme} incrível!" `;
+      content += `Todos ficaram maravilhados com a descoberta.\n\n`;
+      
+      content += `"Nunca vi algo tão legal", disse ${characters.length > 1 ? characters[1] : characters[0]}. `;
+      content += `Havia muito a aprender sobre ${theme}, e eles estavam animados para explorar mais.\n\n`;
+      
+      content += `Cada passo revelava novas surpresas e lições sobre ${theme}.`;
+    }
+    // Challenge chapter
+    else if (i === 2) {
+      content += `De repente, os amigos encontraram um grande desafio: `;
+      content += `havia um rio que precisavam atravessar para continuar explorando ${theme}.\n\n`;
+      
+      content += `"Como vamos passar?", perguntou ${characters[0]}. `;
+      content += `Todos pensaram juntos em uma solução. Era hora de usar a criatividade!\n\n`;
+      
+      content += `Depois de pensar um pouco, eles decidiram construir uma pequena ponte usando `;
+      content += `galhos e folhas que encontraram por perto. Trabalhando juntos, eles podiam superar qualquer obstáculo.`;
+    }
+    // Problem solving chapter
+    else if (i === 3) {
+      content += `Trabalhando juntos, ${characters.join(' e ')} construíram a ponte passo a passo. `;
+      content += `Cada um contribuiu de uma forma especial.\n\n`;
+      
+      content += `"Se ajudarmos uns aos outros, conseguimos resolver qualquer problema!", disse ${characters[0]}. `;
+      content += `A ponte ficou firme e segura, perfeita para atravessar o rio.\n\n`;
+      
+      content += `Depois de atravessar, eles continuaram sua jornada, mais confiantes do que nunca. `;
+      content += `A amizade e trabalho em equipe estavam tornando tudo possível.`;
+    }
+    // Resolution chapter
+    else if (i === 4) {
+      content += `Finalmente, após muitas aventuras, ${characters.join(' e ')} chegaram a um lindo vale. `;
+      content += `Era o coração de ${theme}, cheio de cores e maravilhas.\n\n`;
+      
+      content += `"Conseguimos!", comemorou ${characters[0]}. "Nossa jornada foi incrível!" `;
+      content += `Todos concordaram que aprenderam muito sobre amizade, coragem e ${theme}.\n\n`;
+      
+      content += `Ao voltarem para casa, carregavam não apenas as memórias da aventura, mas também lições valiosas: `;
+      content += `juntos, podemos superar desafios e fazer descobertas incríveis. ${theme} era agora algo especial para todos eles.`;
+    }
+    
+    // Generate an appropriate image prompt (if not text-only mode)
+    const imagePrompt = textOnly ? undefined : 
+      `Ilustração para o capítulo "${chapterTitle}" mostrando ${characters.join(' e ')} ${
+        i === 0 ? 'iniciando sua jornada em um cenário colorido' : 
+        i === 1 ? `descobrindo um ${theme.toLowerCase()} incrível` :
+        i === 2 ? 'enfrentando um desafio (um rio) juntos' :
+        i === 3 ? 'trabalhando juntos para construir uma ponte' :
+        'celebrando sua jornada em um lindo vale colorido'
+      }. Estilo cartoon colorido apropriado para crianças de ${ageGroup} anos.`;
+    
+    return {
+      title: chapterTitle,
+      content,
+      imagePrompt
+    };
+  });
+  
+  // Combine all chapter contents
+  const fullContent = chapters.map(c => `## ${c.title}\n\n${c.content}`).join('\n\n');
+  const contentWithTitle = `# ${title}\n\nUma história sobre ${characters.join(', ')} explorando o tema de ${theme}.\n\n${fullContent}`;
+  
+  return {
+    title,
+    content: contentWithTitle,
+    summary: `Uma história sobre ${characters.join(', ')} explorando o tema de ${theme}.`,
+    readingTime: 5,
+    chapters
+  };
 }
 
 // Função para obter o status de todos os provedores de IA

@@ -161,10 +161,37 @@ export class GetImgProvider implements AIProvider {
       // Negative prompt to avoid common issues in children's illustrations
       const negativePrompt = "blurry, distorted, deformed, disfigured, bad anatomy, ugly, inappropriate content, scary, frightening, text, watermark, signature, adult content";
       
+      // Truncate the prompt to avoid "string too long" error
+      const MAX_PROMPT_LENGTH = 800; // Even more conservative than 1000 to be safe
+      if (enhancedPrompt.length > MAX_PROMPT_LENGTH) {
+        console.log(`GetImg.ai: Truncating prompt from ${enhancedPrompt.length} to ${MAX_PROMPT_LENGTH} characters`);
+        
+        // Extract the first part of the prompt (main context)
+        const mainContext = enhancedPrompt.substring(0, MAX_PROMPT_LENGTH * 0.6);
+        
+        // Keep some character descriptions if available
+        let characterInfo = '';
+        if (params.characterDescriptions && params.characterDescriptions.length > 0) {
+          // Just use the name and basic appearance of the first 2 characters
+          characterInfo = params.characterDescriptions.slice(0, 2).map(char => 
+            `${char.name}: ${char.appearance?.substring(0, 40) || ''}`
+          ).join('; ');
+        }
+        
+        // Keep some style keywords
+        const styleKeywords = params.style === 'cartoon' 
+          ? "cartoonish, vibrant colors, children's book illustration style, cute" 
+          : "high quality illustration, clean artwork";
+        
+        // Combine truncated elements with priority to main context
+        enhancedPrompt = `${mainContext} ${characterInfo}. ${styleKeywords}`.trim();
+        console.log(`GetImg.ai: Truncated prompt: "${enhancedPrompt.substring(0, 100)}..."`);
+      }
+      
       // Configure options based on params
       const requestBody = {
-        model: "stable-diffusion-v1-5", // Changed from "sdxl-lightning" to use a standard model that's more widely supported
-        prompt: enhancedPrompt.substring(0, 1000), // Truncate to 1000 chars to avoid "string too long" error
+        model: "sdxl-lightning", // Restored to the model in logs, as the error was about prompt length, not model name
+        prompt: enhancedPrompt,
         negative_prompt: negativePrompt,
         width: 512, // Reduced from 1024 to improve performance
         height: 512, // Reduced from 1024 to improve performance 

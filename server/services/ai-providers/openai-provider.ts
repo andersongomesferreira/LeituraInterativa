@@ -45,9 +45,26 @@ export class OpenAIProvider implements AIProvider {
       return;
     }
     
-    this.client = new OpenAI({ apiKey: this.apiKey });
-    this.status.isAvailable = true;
-    this.status.statusMessage = "Initialized";
+    try {
+      // Check if API key is properly formatted
+      if (!this.apiKey.startsWith('sk-') || this.apiKey.length < 20) {
+        console.warn("OpenAI API key appears to be invalid (wrong format). OpenAI provider will not be available.");
+        this.status.isAvailable = false;
+        this.status.statusMessage = "API key appears to be invalid (wrong format)";
+        return;
+      }
+      
+      this.client = new OpenAI({ apiKey: this.apiKey });
+      this.status.isAvailable = true;
+      this.status.statusMessage = "Initialized";
+      
+      // Schedule an immediate health check
+      setTimeout(() => this.checkHealth(), 1000);
+    } catch (error: any) {
+      console.error("Error initializing OpenAI provider:", error);
+      this.status.isAvailable = false;
+      this.status.statusMessage = `Error initializing: ${error.message || String(error)}`;
+    }
   }
   
   async checkHealth(): Promise<HealthCheckResult> {
@@ -200,6 +217,7 @@ export class OpenAIProvider implements AIProvider {
       const b64Json = response.data[0]?.b64_json;
       
       return {
+        success: true,
         imageUrl,
         base64Image: b64Json,
         model,
