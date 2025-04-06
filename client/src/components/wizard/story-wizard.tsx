@@ -32,7 +32,7 @@ const StoryWizard = () => {
   
   const generateStoryMutation = useMutation({
     mutationFn: async (storyData: WizardData) => {
-      const response = await apiRequest("POST", "/api/stories", storyData);
+      const response = await apiRequest("POST", "/api/stories/generate", storyData);
       return response.json();
     },
     onSuccess: (story) => {

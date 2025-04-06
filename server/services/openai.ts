@@ -50,7 +50,7 @@ export function extractChapters(content: string): Chapter[] {
     let imagePrompt = undefined;
     
     // Procurar por um marcador de prompt de imagem no conteúdo
-    const promptRegex = /\[image:\s*([^\]]+)\]/i;
+    const promptRegex = /\[(?:image|imagem|IMAGEM):\s*([^\]]+)\]/i;
     const promptMatch = chapterContent.match(promptRegex);
     
     if (promptMatch) {
@@ -546,7 +546,7 @@ export async function generateStory(params: StoryParams): Promise<GeneratedStory
     const chapters = extractChapters(content);
     
     // Adicionar prompts de imagem aos capítulos
-    const imageRegex = /\[IMAGEM: (.*?)\]/g;
+    const imageRegex = /\[IMAGEM:\s+(.*?)\]/g;
     let match;
     let index = 0;
     
