@@ -901,6 +901,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Registrar rotas para gerenciamento de chaves API (usuário)
   app.use('/api/user/ai-keys', userApiKeysRoutes);
   
+  // Admin routes
+  app.get("/api/admin/dashboard", isAdmin, async (req, res) => {
+    try {
+      // Get counts from storage
+      const users = await storage.getAllUsers();
+      const stories = await storage.getAllStories();
+      const subscriptions = await storage.getAllUserSubscriptions();
+      const activeSubscriptions = subscriptions.filter(sub => 
+        sub.status === 'active' && new Date(sub.expiresAt) > new Date()
+      );
+
+      // Get AI providers status
+      const aiProviders = await getAIProvidersStatus();
+      
+      const providerMetrics = aiProviderManager.getProviderMetrics();
+      
+      // Map AI providers with metrics
+      const aiProvidersWithMetrics = aiProviders.map(provider => {
+        const metrics = providerMetrics[provider.id] || { 
+          success: 0, 
+          total: 0, 
+          successRate: 0 
+        };
+        
+        return {
+          ...provider,
+          metrics
+        };
+      });
+
+      res.json({
+        counts: {
+          users: users.length,
+          stories: stories.length,
+          subscriptions: subscriptions.length,
+          activeSubscriptions: activeSubscriptions.length
+        },
+        aiProviders: aiProvidersWithMetrics
+      });
+    } catch (error) {
+      console.error("Error in admin dashboard:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  app.get("/api/admin/users", isAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      // Remove passwords from response
+      const safeUsers = users.map(user => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { password, ...userWithoutPassword } = user;
+        return userWithoutPassword;
+      });
+      
+      res.json(safeUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  app.get("/api/admin/stories", isAdmin, async (req, res) => {
+    try {
+      const stories = await storage.getAllStories();
+      res.json(stories);
+    } catch (error) {
+      console.error("Error fetching stories:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  app.get("/api/admin/subscriptions", isAdmin, async (req, res) => {
+    try {
+      const subscriptions = await storage.getAllUserSubscriptions();
+      const users = await storage.getAllUsers();
+      
+      // Map user data to subscriptions
+      const subscriptionsWithUserData = await Promise.all(
+        subscriptions.map(async (subscription) => {
+          const user = users.find(u => u.id === subscription.userId);
+          const plan = await storage.getSubscriptionPlan(subscription.planId);
+          
+          return {
+            ...subscription,
+            userName: user ? user.name : 'Unknown',
+            userEmail: user ? user.email : 'Unknown',
+            planName: plan ? plan.name : 'Unknown'
+          };
+        })
+      );
+      
+      res.json(subscriptionsWithUserData);
+    } catch (error) {
+      console.error("Error fetching subscriptions:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  
   // Endpoint público para verificar quais provedores de IA estão disponíveis
   app.get("/api/ai-providers/public-status", async (req, res) => {
     try {
