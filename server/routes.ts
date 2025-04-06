@@ -724,9 +724,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               );
               
               // Atualizar o capítulo com a URL da imagem
+              // Verificar se a URL está vazia ou indefinida e usar imagem de backup se necessário
+              const finalImageUrl = generatedImage.imageUrl && generatedImage.imageUrl.trim().length > 0
+                ? generatedImage.imageUrl
+                : "https://cdn.pixabay.com/photo/2016/04/15/20/28/cartoon-1332054_960_720.png";
+                
+              console.log(`Chapter ${i+1} image URL: ${finalImageUrl.substring(0, 30)}...`);
+              
               updatedChapters[i] = {
                 ...updatedChapters[i],
-                imageUrl: generatedImage.imageUrl
+                imageUrl: finalImageUrl
               };
               
               // Atualizar as descrições dos personagens após cada capítulo
@@ -735,7 +742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 characterNames.map(name => ({
                   name,
                   description: chapters[i].content,
-                  imageUrl: generatedImage.imageUrl
+                  imageUrl: finalImageUrl
                 }))
               );
               

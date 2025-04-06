@@ -398,10 +398,28 @@ export class MemStorage implements IStorage {
       id, 
       createdAt: new Date(),
       imageUrl: story.imageUrl || null,
-      characterIds: story.characterIds || []
+      characterIds: story.characterIds || [],
+      textOnly: story.textOnly || null
     };
     this.stories.set(id, newStory);
     return newStory;
+  }
+  
+  async updateStory(id: number, story: Partial<InsertStory>): Promise<Story | undefined> {
+    const existingStory = this.stories.get(id);
+    if (!existingStory) {
+      return undefined;
+    }
+    
+    const updatedStory: Story = { 
+      ...existingStory, 
+      ...story,
+      characterIds: story.characterIds || existingStory.characterIds,
+      textOnly: story.textOnly !== undefined ? story.textOnly : existingStory.textOnly
+    };
+    
+    this.stories.set(id, updatedStory);
+    return updatedStory;
   }
 
   // Reading session methods
