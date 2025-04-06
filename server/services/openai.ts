@@ -1,7 +1,11 @@
 import OpenAI from "openai";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "your-api-key" });
+if (!process.env.OPENAI_API_KEY) {
+  console.error("AVISO CRÍTICO: OPENAI_API_KEY não está configurada! A geração de histórias não funcionará.");
+}
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export interface StoryParams {
   characters: string[];
@@ -67,40 +71,101 @@ export async function generateStory(params: StoryParams): Promise<GeneratedStory
     - readingTime: Tempo estimado de leitura em minutos (número)
   `;
 
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Chave da API OpenAI não configurada. Não é possível gerar histórias.");
+  }
+
   try {
+    console.log(`Gerando história com tema "${theme}" para faixa etária ${ageGroup}...`);
+    
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" }
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    if (!response.choices || response.choices.length === 0 || !response.choices[0].message.content) {
+      console.error("Resposta da API OpenAI não contém conteúdo:", response);
+      throw new Error("Resposta da API OpenAI inválida");
+    }
+
+    let result;
+    try {
+      result = JSON.parse(response.choices[0].message.content);
+    } catch (parseError) {
+      console.error("Erro ao analisar JSON da resposta:", response.choices[0].message.content);
+      throw new Error("Formato de resposta inválido da API");
+    }
+    
+    if (!result.title || !result.content) {
+      console.error("Resposta da API não contém campos obrigatórios:", result);
+      throw new Error("Resposta incompleta da API");
+    }
+    
+    console.log(`História gerada com sucesso: "${result.title}"`);
     
     return {
-      title: result.title || "História sem título",
-      content: result.content || "Era uma vez...",
-      summary: result.summary || "Uma aventura mágica",
-      readingTime: result.readingTime || 5
+      title: result.title,
+      content: result.content,
+      summary: result.summary || `Uma história sobre ${theme}`,
+      readingTime: result.readingTime || Math.ceil(result.content.length / 1000)
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro ao gerar história:", error);
-    throw new Error("Não foi possível gerar a história. Por favor, tente novamente.");
+    
+    // Mensagens de erro mais específicas baseadas no tipo de erro
+    if (error.response?.status === 401) {
+      throw new Error("Falha na autenticação com API OpenAI. Verifique a chave da API.");
+    } else if (error.response?.status === 429) {
+      throw new Error("Limite de requisições da API OpenAI excedido. Tente novamente mais tarde.");
+    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      throw new Error("Erro de conexão com a API OpenAI. Verifique sua conexão à internet.");
+    } else if (error.message.includes("JSON")) {
+      throw new Error("Erro no formato da resposta da API. Tente novamente.");
+    } else {
+      throw new Error("Não foi possível gerar a história. Por favor, tente novamente.");
+    }
   }
 }
 
 // Text to speech for story narration
 export async function generateAudioFromText(text: string): Promise<string> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Chave da API OpenAI não configurada. Não é possível gerar áudio.");
+  }
+  
+  if (!text || text.trim().length === 0) {
+    throw new Error("Texto vazio. Não é possível gerar áudio.");
+  }
+  
+  // Limitar o tamanho do texto para evitar problemas com a API
+  const maxLength = 4000;
+  const textForAudio = text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
+  
   try {
+    console.log("Gerando áudio para narração...");
+    
     const response = await openai.audio.speech.create({
       model: "tts-1",
       voice: "nova", // A friendly, warm voice
-      input: text,
+      input: textForAudio,
     });
 
+    console.log("Áudio gerado com sucesso");
     const buffer = Buffer.from(await response.arrayBuffer());
     return buffer.toString('base64');
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro ao gerar áudio:", error);
-    throw new Error("Não foi possível gerar o áudio para narração.");
+    
+    // Mensagens de erro mais específicas
+    if (error.response?.status === 401) {
+      throw new Error("Falha na autenticação com API OpenAI. Verifique a chave da API.");
+    } else if (error.response?.status === 429) {
+      throw new Error("Limite de requisições da API OpenAI excedido. Tente novamente mais tarde.");
+    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      throw new Error("Erro de conexão com a API OpenAI. Verifique sua conexão à internet.");
+    } else {
+      throw new Error("Não foi possível gerar o áudio para narração. Por favor, tente novamente.");
+    }
   }
 }

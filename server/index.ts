@@ -2,6 +2,17 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+async function seedDatabase() {
+  log("Carregando dados iniciais no banco de dados...");
+  try {
+    // Usamos import dinâmico para que o script seja executado apenas quando necessário
+    await import("./scripts/seed-database");
+    log("Dados iniciais carregados com sucesso!");
+  } catch (error) {
+    console.error("Erro ao carregar dados iniciais:", error);
+  }
+}
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -37,6 +48,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Inicializa o banco de dados com dados padrão
+  await seedDatabase();
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
