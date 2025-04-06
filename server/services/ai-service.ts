@@ -39,6 +39,15 @@ export interface GeneratedImage {
   base64Image?: string;
   metadata?: any;
   isBackup?: boolean;
+  success?: boolean;
+  error?: string;
+  provider?: string;
+  model?: string;
+  promptUsed?: string;
+  seed?: number;
+  generationTime?: number;
+  details?: any;
+  attemptedProviders?: string[];
 }
 
 // Função para extrair capítulos de uma história
@@ -239,7 +248,7 @@ export async function generateStory(params: StoryParams, userTier: string = "fre
   }
 }
 
-// Função para gerar uma imagem utilizando o provedor mais adequado
+// Função aprimorada para gerar uma imagem utilizando o provedor mais adequado
 export async function generateImage(
   prompt: string, 
   options: {
@@ -248,53 +257,134 @@ export async function generateImage(
     backgroundColor?: string;
     characterStyle?: "cute" | "funny" | "heroic";
     ageGroup?: "3-5" | "6-8" | "9-12";
+    provider?: string; // Provedor específico a ser usado (opcional)
+    seed?: number; // Seed para resultados consistentes (opcional)
+    characterDescriptions?: Array<{
+      name: string;
+      appearance?: string;
+      visualAttributes?: {
+        colors: string[];
+        clothing?: string;
+        distinguishingFeatures?: string[];
+      };
+      previousImages?: string[];
+    }>;
   } = {},
   userTier: string = "free"
-): Promise<GeneratedImage> {
+): Promise<GeneratedImage & {
+  success: boolean;
+  error?: string;
+  provider?: string;
+  model?: string;
+  promptUsed?: string;
+  seed?: number;
+  generationTime?: number;
+}> {
+  console.log(`Iniciando processo de geração de imagem com estilo: ${options.style || 'cartoon'}`);
+  
   try {
+    // Aprimorar o prompt com base no estilo solicitado
+    let enhancedPrompt = prompt;
+    
+    // Adicionar palavras-chave específicas de estilo
+    switch (options.style) {
+      case "cartoon":
+        enhancedPrompt += ", estilo de desenho animado, cores vibrantes, adequado para crianças, ilustração fofa, colorido";
+        break;
+      case "watercolor":
+        enhancedPrompt += ", pintura em aquarela, cores suaves, artístico, ilustração sonhadora";
+        break;
+      case "pencil":
+        enhancedPrompt += ", desenho a lápis, esboço, desenhado à mão, sombreamento suave";
+        break;
+      case "digital":
+        enhancedPrompt += ", arte digital, ilustração moderna, linhas limpas, profissional";
+        break;
+    }
+    
+    // Adicionar descrições de personagens ao prompt, se disponíveis
+    if (options.characterDescriptions && options.characterDescriptions.length > 0) {
+      const charDescriptions = options.characterDescriptions
+        .map(char => {
+          let desc = `${char.name}`;
+          if (char.appearance) desc += ` (${char.appearance})`;
+          return desc;
+        })
+        .join(", ");
+      
+      enhancedPrompt += `. Personagens na cena: ${charDescriptions}.`;
+    }
+    
+    console.log(`Prompt aprimorado: "${enhancedPrompt.substring(0, 50)}..."`);
+    
     const imageParams: ImageGenerationParams = {
-      prompt,
+      prompt: enhancedPrompt,
       style: options.style || "cartoon",
       mood: options.mood || "happy",
-      ageGroup: options.ageGroup
+      ageGroup: options.ageGroup,
+      seed: options.seed,
+      provider: options.provider,
+      characterDescriptions: options.characterDescriptions
     };
     
     // Usar nosso gerenciador de provedores para escolher o melhor provedor
+    console.log(`Solicitando geração de imagem ao gerenciador de provedores...`);
     const result = await aiProviderManager.generateImage(imageParams, userTier);
     
-    // Verificar se temos uma URL válida
-    if (!result.imageUrl) {
-      console.warn("Provider returned empty imageUrl, using backup image");
+    // Verificar se temos um resultado bem-sucedido com URL de imagem válida
+    if (result.success && result.imageUrl && result.imageUrl.trim().length > 0) {
+      console.log(`Imagem gerada com sucesso pelo provedor ${result.provider}, tamanho da URL: ${result.imageUrl.length}`);
+      
       return {
-        imageUrl: "https://cdn.pixabay.com/photo/2016/04/15/20/28/cartoon-1332054_960_720.png",
-        isBackup: true,
+        success: true,
+        imageUrl: result.imageUrl,
+        base64Image: result.base64Image,
+        isBackup: false,
+        provider: result.provider,
+        model: result.model,
+        generationTime: result.generationTime,
+        seed: result.seed || options.seed,
+        promptUsed: enhancedPrompt,
         metadata: {
           providerUsed: result.provider,
-          originalError: "Empty image URL returned from provider"
+          model: result.model,
+          generationTime: result.generationTime,
+          prompt: enhancedPrompt.substring(0, 100) + "..."
+        }
+      };
+    } else {
+      // Se temos uma URL de imagem, mas success é false, algo deu errado
+      console.warn(`Provedor ${result.provider} retornou resultado malsucedido:`, {
+        success: result.success,
+        error: result.error,
+        hasImageUrl: !!result.imageUrl
+      });
+      
+      // Usar uma imagem de placeholder em vez de fallback específico
+      return {
+        success: false,
+        imageUrl: result.imageUrl || "https://placehold.co/600x400/FFDE59/333333?text=Falha+na+geração",
+        isBackup: !result.imageUrl,
+        error: result.error || "Erro desconhecido durante a geração da imagem",
+        provider: result.provider,
+        metadata: {
+          providerUsed: result.provider,
+          error: result.error || "Erro desconhecido",
+          attemptedProviders: result.attemptedProviders
         }
       };
     }
-    
-    console.log(`Image successfully generated by ${result.provider}, URL: ${result.imageUrl.substring(0, 30)}...`);
-    
-    return {
-      imageUrl: result.imageUrl,
-      base64Image: result.base64Image,
-      isBackup: result.isBackup,
-      metadata: {
-        providerUsed: result.provider,
-        model: result.model
-      }
-    };
   } catch (error: any) {
-    console.error("Error generating image:", error);
+    console.error("Erro no processo de geração de imagem:", error);
     
-    // Usar imagem de backup em caso de erro
+    // Usar uma imagem de placeholder como fallback
     return {
-      imageUrl: "https://cdn.pixabay.com/photo/2016/04/15/20/28/cartoon-1332054_960_720.png",
+      success: false,
+      imageUrl: "https://placehold.co/600x400/FFDE59/333333?text=Erro+na+geração",
       isBackup: true,
+      error: error.message || "Erro desconhecido",
       metadata: {
-        error: error.message || "Unknown error"
+        error: error.message || "Erro desconhecido"
       }
     };
   }

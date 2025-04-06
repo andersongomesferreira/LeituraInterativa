@@ -210,6 +210,13 @@ export class RunwareProvider implements AIProvider {
         requestBody.num_outputs = Math.min(params.batchSize, 4); // Max 4 samples per request
       }
       
+      // Log the request details (without exposing full API key)
+      console.log(`Runware request details:
+        URL: ${this.baseUrl}
+        API Key (first 5 chars): ${this.apiKey?.substring(0, 5)}...
+        Prompt length: ${requestBody.prompt.length} chars
+      `);
+      
       // Make API request
       const response = await fetch(this.baseUrl, {
         method: 'POST',
@@ -220,8 +227,12 @@ export class RunwareProvider implements AIProvider {
         body: JSON.stringify(requestBody)
       });
       
+      // Log response status for debugging
+      console.log(`Runware response status: ${response.status} ${response.statusText}`);
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => response.text());
+        console.error('Runware API error details:', JSON.stringify(errorData));
         return {
           success: false,
           imageUrl: '',
@@ -231,6 +242,13 @@ export class RunwareProvider implements AIProvider {
       }
       
       const data = await response.json();
+      
+      // Log response data structure for debugging
+      console.log(`Runware response data structure: ${JSON.stringify({
+        hasImages: !!data.images,
+        imagesLength: data.images ? data.images.length : 0,
+        keys: Object.keys(data)
+      })}`);
       
       // Process response - structure may vary based on actual API response
       if (data.images && data.images.length > 0) {

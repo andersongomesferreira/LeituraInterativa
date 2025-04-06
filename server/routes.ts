@@ -901,6 +901,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
+  
+  // Endpoint for testing AI image generation with detailed debugging
+  app.post("/api/test-image-generation", async (req, res) => {
+    try {
+      const { provider, prompt } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Prompt is required' 
+        });
+      }
+      
+      console.log(`Testing image generation with provider: ${provider || 'default'}, prompt: "${prompt.substring(0, 50)}..."`);
+      
+      const result = await generateImage(prompt, {
+        style: req.body.style || 'cartoon',
+        provider: provider,
+        seed: req.body.seed || undefined,
+        characterDescriptions: req.body.characterDescriptions || undefined
+      });
+      
+      console.log(`Image generation test result:`, {
+        success: result.success,
+        imageUrl: result.imageUrl ? (result.imageUrl.substring(0, 30) + '...') : 'none',
+        provider: result.provider,
+        error: result.error,
+        isBackup: result.isBackup
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error('Error testing image generation:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
 
   app.get("/api/user-subscription", isAuthenticated, async (req, res) => {
     try {

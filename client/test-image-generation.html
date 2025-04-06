@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Image Generation Test</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+    
+    .container {
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    
+    select, textarea, input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    
+    textarea {
+      height: 150px;
+      resize: vertical;
+    }
+    
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      text-align: center;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    
+    button:hover {
+      background-color: #45a049;
+    }
+    
+    .result {
+      margin-top: 20px;
+      border-top: 1px solid #ddd;
+      padding-top: 20px;
+    }
+    
+    .image-result {
+      margin-top: 20px;
+      text-align: center;
+    }
+    
+    .image-result img {
+      max-width: 100%;
+      max-height: 500px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    .error {
+      color: #ff0000;
+      background-color: #ffeeee;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ffcccc;
+    }
+    
+    .success {
+      color: #008000;
+      background-color: #eeffee;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ccffcc;
+    }
+    
+    .loading {
+      text-align: center;
+      margin-top: 20px;
+    }
+    
+    .spinner {
+      display: inline-block;
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top-color: #4CAF50;
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .metadata {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+    
+    .result-log {
+      max-height: 200px;
+      overflow-y: auto;
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>AI Image Generation Test</h1>
+  
+  <div class="container">
+    <form id="generationForm">
+      <div>
+        <label for="provider">Provider:</label>
+        <select id="provider" name="provider">
+          <option value="">Default (Auto-select)</option>
+          <option value="openai">OpenAI DALL-E</option>
+          <option value="getimg">GetImg.ai</option>
+          <option value="runware">Runware</option>
+          <option value="stability">Stability AI</option>
+          <option value="replicate">Replicate</option>
+        </select>
+      </div>
+      
+      <div>
+        <label for="style">Style:</label>
+        <select id="style" name="style">
+          <option value="cartoon">Cartoon</option>
+          <option value="watercolor">Watercolor</option>
+          <option value="pencil">Pencil Drawing</option>
+          <option value="digital">Digital Art</option>
+        </select>
+      </div>
+      
+      <div>
+        <label for="seed">Seed (optional):</label>
+        <input type="number" id="seed" name="seed" placeholder="Random if not specified">
+      </div>
+      
+      <div>
+        <label for="prompt">Prompt:</label>
+        <textarea id="prompt" name="prompt" placeholder="Describe the image you want to generate..." required>A friendly cartoon lion cub with a red backpack, standing in a classroom, smiling. Child-friendly, bright colors, educational setting.</textarea>
+      </div>
+      
+      <button type="submit">Generate Image</button>
+    </form>
+    
+    <div id="loading" class="loading" style="display: none">
+      <div class="spinner"></div>
+      <p>Generating image... This may take up to 30 seconds.</p>
+    </div>
+    
+    <div id="result" class="result" style="display: none">
+      <h2>Result:</h2>
+      
+      <div id="status"></div>
+      
+      <div id="imageResult" class="image-result">
+        <img id="generatedImage" src="" alt="Generated image will appear here">
+      </div>
+      
+      <h3>Metadata:</h3>
+      <div id="metadata" class="metadata"></div>
+      
+      <h3>Full Response:</h3>
+      <div id="resultLog" class="result-log"></div>
+    </div>
+  </div>
+  
+  <script>
+    document.getElementById('generationForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      // Show loading indicator
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('result').style.display = 'none';
+      
+      // Get form values
+      const provider = document.getElementById('provider').value;
+      const style = document.getElementById('style').value;
+      const seed = document.getElementById('seed').value || undefined;
+      const prompt = document.getElementById('prompt').value;
+      
+      try {
+        // Make API call
+        const response = await fetch('/api/test-image-generation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            provider,
+            style,
+            seed: seed ? parseInt(seed) : undefined,
+            prompt
+          })
+        });
+        
+        const result = await response.json();
+        
+        // Hide loading indicator
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('result').style.display = 'block';
+        
+        // Show result status
+        const statusEl = document.getElementById('status');
+        if (result.success) {
+          statusEl.innerHTML = `<div class="success">Image successfully generated using <strong>${result.provider || 'unknown'}</strong> provider.</div>`;
+          document.getElementById('generatedImage').src = result.imageUrl;
+        } else {
+          statusEl.innerHTML = `<div class="error">Error: ${result.error || 'Unknown error'}</div>`;
+          if (result.isBackup && result.imageUrl) {
+            document.getElementById('generatedImage').src = result.imageUrl;
+            statusEl.innerHTML += `<div class="error">Using backup image.</div>`;
+          } else {
+            document.getElementById('generatedImage').src = '';
+          }
+        }
+        
+        // Show metadata
+        const metadata = {
+          provider: result.provider,
+          model: result.model,
+          promptUsed: result.promptUsed ? (result.promptUsed.substring(0, 100) + '...') : 'Not provided',
+          isBackup: result.isBackup || false,
+          seed: result.seed || 'Not provided',
+          generationTime: result.generationTime || 'Not provided'
+        };
+        document.getElementById('metadata').textContent = JSON.stringify(metadata, null, 2);
+        
+        // Show full response log
+        document.getElementById('resultLog').textContent = JSON.stringify(result, null, 2);
+        
+      } catch (error) {
+        // Hide loading indicator and show error
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('result').style.display = 'block';
+        
+        document.getElementById('status').innerHTML = `<div class="error">Error: ${error.message}</div>`;
+        document.getElementById('resultLog').textContent = error.toString();
+      }
+    });
+  </script>
+</body>
+</html>

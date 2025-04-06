@@ -65,11 +65,58 @@ export class AIProviderManager {
       this.metrics.set(provider.id, { success: 0, total: 0 });
     });
     
+    // Load API keys from environment variables
+    this.loadApiKeysFromEnv();
+    
     // Start health check interval (every 15 minutes)
     setInterval(() => this.checkAllProvidersHealth(), 15 * 60 * 1000);
     
     // Run initial health check
     this.checkAllProvidersHealth();
+  }
+  
+  /**
+   * Load API keys from environment variables
+   */
+  private loadApiKeysFromEnv(): void {
+    console.log('Loading API keys from environment variables...');
+    
+    // Map environment variable names to provider IDs
+    const envKeyMap: Record<string, string> = {
+      'OPENAI_API_KEY': 'openai',
+      'ANTHROPIC_API_KEY': 'anthropic',
+      'GETIMG_AI_API_KEY': 'getimg',
+      'RUNWARE_API_KEY': 'runware',
+      'STABILITY_API_KEY': 'stability',
+      'REPLICATE_API_KEY': 'replicate'
+    };
+    
+    // Track which keys were loaded
+    const loadedKeys: string[] = [];
+    
+    // Attempt to load and set API keys
+    Object.entries(envKeyMap).forEach(([envName, providerId]) => {
+      const apiKey = process.env[envName];
+      
+      if (apiKey && apiKey.trim() !== '') {
+        try {
+          const result = this.setProviderApiKey(providerId, apiKey);
+          
+          if (result.success) {
+            loadedKeys.push(providerId);
+            console.log(`Successfully loaded API key for ${providerId} from environment`);
+          } else {
+            console.warn(`Failed to set API key for ${providerId} from environment: ${result.message}`);
+          }
+        } catch (error) {
+          console.error(`Error setting API key for ${providerId}:`, error);
+        }
+      } else {
+        console.log(`No API key found for ${providerId} (${envName})`);
+      }
+    });
+    
+    console.log(`API key loading complete. Successfully loaded keys for: [${loadedKeys.join(', ')}]`);
   }
   
   /**

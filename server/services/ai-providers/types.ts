@@ -98,7 +98,7 @@ export interface ImageGenerationParams {
 // Descrição de personagem para consistência visual
 export interface CharacterDescription {
   name: string;
-  appearance: string;
+  appearance?: string; // Tornando opcional para compatibilidade
   visualAttributes?: {
     colors: string[];
     clothing?: string;
@@ -110,6 +110,7 @@ export interface CharacterDescription {
 
 // Resultado da geração de imagem
 export interface ImageGenerationResult {
+  success: boolean; // Making this required to enforce consistent error handling
   imageUrl: string;
   base64Image?: string;
   model?: string;
@@ -117,12 +118,12 @@ export interface ImageGenerationResult {
   promptUsed?: string;
   metadata?: any;
   isBackup?: boolean;
-  alternativeImages?: string[]; // For batch generation results
-  
-  // For error handling and provider implementation
-  success: boolean; // Making this required to enforce consistent error handling
   error?: string;
   details?: any;
+  seed?: number;
+  generationTime?: number;
+  attemptedProviders?: string[];
+  alternativeImages?: string[]; // For batch generation results
 }
 
 // Configuração de roteamento para provedores

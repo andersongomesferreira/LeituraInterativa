@@ -163,15 +163,15 @@ export class GetImgProvider implements AIProvider {
       
       // Configure options based on params
       const requestBody = {
-        model: "icbinp-realistic",  // Using a child-friendly model
+        model: "sdxl-lightning", // Using faster, more reliable model, alternative: "sdxl", "stable-diffusion-v1-5"
         prompt: enhancedPrompt,
         negative_prompt: negativePrompt,
         width: 1024,
         height: 1024,
-        steps: 30,
+        steps: 25,        // Reduced for better reliability
         guidance: 7.5,
         seed: params.seed || Math.floor(Math.random() * 2147483647), // Use provided seed or random
-        scheduler: "dpmsolver++",
+        scheduler: "ddim", // More reliable scheduler, alternative: "dpmsolver++"
         output_format: "jpeg",
         samples: 1
       };
@@ -180,6 +180,14 @@ export class GetImgProvider implements AIProvider {
       if (params.batchSize && params.batchSize > 1) {
         requestBody.samples = Math.min(params.batchSize, 4); // Max 4 samples per request
       }
+      
+      // Log the request details (without exposing full API key)
+      console.log(`GetImg.ai request details:
+        URL: ${this.baseUrl}
+        API Key (first 5 chars): ${this.apiKey?.substring(0, 5)}...
+        Model: ${requestBody.model}
+        Prompt length: ${requestBody.prompt.length} chars
+      `);
       
       // Make API request
       const response = await fetch(this.baseUrl, {
@@ -191,8 +199,12 @@ export class GetImgProvider implements AIProvider {
         body: JSON.stringify(requestBody)
       });
       
+      // Log response status for debugging
+      console.log(`GetImg.ai response status: ${response.status} ${response.statusText}`);
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => response.text());
+        console.error('GetImg.ai API error details:', JSON.stringify(errorData));
         return {
           success: false,
           imageUrl: '',
@@ -202,6 +214,15 @@ export class GetImgProvider implements AIProvider {
       }
       
       const data = await response.json();
+      
+      // Log response data structure for debugging
+      console.log(`GetImg.ai response data structure: ${JSON.stringify({
+        hasOutput: !!data.output,
+        outputLength: data.output ? data.output.length : 0,
+        outputType: data.output ? typeof data.output : 'undefined',
+        hasMeta: !!data.meta,
+        keys: Object.keys(data)
+      })}`);
       
       // Process response
       if (data.output && data.output.length > 0) {
