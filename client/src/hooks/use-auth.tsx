@@ -43,18 +43,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { username: string; password: string }) => {
-      const response = await apiRequest("POST", "/api/auth/login", credentials);
-      if (!response.ok) {
-        let errorMessage = "Login failed";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          console.error("Failed to parse error response:", e);
+      try {
+        const response = await fetch("/api/auth/login", {
+          method: "POST", 
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(credentials),
+          credentials: "include"
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.message || "Falha no login");
         }
-        throw new Error(errorMessage);
+        
+        return data;
+      } catch (error) {
+        console.error("Login error:", error);
+        throw error;
       }
-      return await response.json();
     },
     onSuccess: () => {
       refetch();
@@ -64,9 +71,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error: Error) => {
+      let errorMessage = error.message;
+      
+      // Customize the error message based on the server response
+      if (error.message === "Usuário não encontrado") {
+        errorMessage = "Nome de usuário não encontrado. Verifique se digitou corretamente.";
+      } else if (error.message === "Senha incorreta") {
+        errorMessage = "Senha incorreta. Por favor, tente novamente.";
+      }
+      
       toast({
         title: "Falha no login",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     },

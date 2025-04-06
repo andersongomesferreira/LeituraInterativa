@@ -7,27 +7,49 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-export async function apiRequest(
+export const apiRequest = async (
   method: string,
-  url: string,
-  data?: unknown | undefined,
-): Promise<Response> {
-  const res = await fetch(url, {
+  endpoint: string,
+  data?: any
+): Promise<Response> => {
+  const options: RequestInit = {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
+    headers: {
+      "Content-Type": "application/json",
+    },
     credentials: "include",
-  });
-  
-  // For auth endpoints, don't throw on error status codes
-  // Instead, let the component handle the response
-  if (url === "/api/auth/login" || url === "/api/auth/register") {
-    return res;
+  };
+
+  if (data && (method === "POST" || method === "PUT" || method === "PATCH")) {
+    options.body = JSON.stringify(data);
   }
 
-  await throwIfResNotOk(res);
-  return res;
-}
+  const response = await fetch(endpoint, options);
+
+  // If the response is not successful, try to parse the error message
+  if (!response.ok) {
+    try {
+      const errorData = await response.json();
+      // Create a clone of the response to return
+      const clonedResponse = new Response(JSON.stringify(errorData), {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+
+      // Throw an error with the message from the API
+      throw new Error(errorData.message || "Erro na requisição");
+    } catch (parseError) {
+      if (parseError instanceof Error && parseError.message !== "Erro na requisição") {
+        throw parseError;
+      }
+      // If we couldn't parse the JSON, just throw a generic error
+      throw new Error(`Erro ${response.status}: ${response.statusText}`);
+    }
+  }
+
+  return response;
+};
 
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {

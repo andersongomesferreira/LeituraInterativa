@@ -41,15 +41,8 @@ const LoginForm = () => {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      // Fazer requisição direta sem usar apiRequest
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-        credentials: "include"
-      });
+      // Usar apiRequest para padronizar o tratamento de erros
+      const response = await apiRequest("POST", "/api/auth/login", data);
       
       const responseData = await response.json();
       
@@ -64,17 +57,24 @@ const LoginForm = () => {
         
         // Aguardar antes de navegar para garantir que o estado da sessão está atualizado
         setTimeout(() => {
-          // Atualizar primeiro para garantir que o redirecionamento funcione
-          window.location.href = "/dashboard/parent";
+          navigate("/dashboard/parent");
         }, 1000);
       } else {
         throw new Error(responseData?.message || "Falha no login");
       }
     } catch (error: any) {
       console.error("Login error:", error);
+      
+      let errorMessage = "Nome de usuário ou senha incorretos.";
+      if (error.message === "Usuário não encontrado") {
+        errorMessage = "Usuário não encontrado. Verifique seu nome de usuário.";
+      } else if (error.message === "Senha incorreta") {
+        errorMessage = "Senha incorreta. Tente novamente.";
+      }
+      
       toast({
         title: "Erro ao fazer login",
-        description: error.message || "Nome de usuário ou senha incorretos.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -132,8 +132,8 @@ const LoginForm = () => {
       <CardFooter className="flex flex-col space-y-2">
         <div className="text-sm text-center">
           Não tem uma conta?{" "}
-          <Link href="/register">
-            <a className="text-primary hover:underline">Registre-se</a>
+          <Link href="/register" className="text-primary hover:underline">
+            Registre-se
           </Link>
         </div>
       </CardFooter>
