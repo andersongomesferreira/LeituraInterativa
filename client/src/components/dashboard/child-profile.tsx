@@ -33,6 +33,20 @@ import {
 import { Link } from "wouter";
 import { Baby, Blocks, BookOpen, User, Clock, BookOpen as BookIcon } from "lucide-react";
 
+// Função de utilidade para obter o ícone baseado na faixa etária
+const getAgeIcon = (ageGroup: string) => {
+  switch (ageGroup) {
+    case "3-5":
+      return <Baby className="mr-2 h-4 w-4" />;
+    case "6-8":
+      return <Blocks className="mr-2 h-4 w-4" />;
+    case "9-12":
+      return <BookOpen className="mr-2 h-4 w-4" />;
+    default:
+      return <User className="mr-2 h-4 w-4" />;
+  }
+};
+
 interface ChildProfileProps {
   profile?: {
     id: number;
@@ -93,19 +107,6 @@ const ChildProfileDialog = ({ profile, isNew = false, onClose, open }: ChildProf
 
   const onSubmit = (data: z.infer<typeof profileSchema>) => {
     createProfileMutation.mutate(data);
-  };
-
-  const getAgeIcon = (ageGroup: string) => {
-    switch (ageGroup) {
-      case "3-5":
-        return <Baby className="mr-2 h-4 w-4" />;
-      case "6-8":
-        return <Blocks className="mr-2 h-4 w-4" />;
-      case "9-12":
-        return <BookOpen className="mr-2 h-4 w-4" />;
-      default:
-        return <User className="mr-2 h-4 w-4" />;
-    }
   };
 
   return (
