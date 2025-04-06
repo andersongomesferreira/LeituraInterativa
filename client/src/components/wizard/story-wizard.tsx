@@ -43,15 +43,9 @@ const StoryWizard = () => {
       };
       
       try {
+        // apiRequest já retorna o JSON processado
         const response = await apiRequest("POST", "/api/stories/generate", payload);
-        // Verificar se a resposta é uma string JSON ou já é um objeto
-        if (typeof response === 'object' && response !== null) {
-          return response; // Já é um objeto
-        } else if (response && typeof response.json === 'function') {
-          return response.json(); // É uma resposta fetch com método json()
-        } else {
-          throw new Error("Formato de resposta inválido");
-        }
+        return response;
       } catch (error) {
         console.error("Erro ao processar resposta:", error);
         throw error;

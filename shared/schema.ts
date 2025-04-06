@@ -93,6 +93,7 @@ export const stories = pgTable("stories", {
   imageUrl: text("image_url"),
   characterIds: integer("character_ids").array(),
   themeId: integer("theme_id").notNull(),
+  textOnly: boolean("text_only").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -103,6 +104,7 @@ export const insertStorySchema = createInsertSchema(stories).pick({
   imageUrl: true,
   characterIds: true,
   themeId: true,
+  textOnly: true,
 });
 
 export type InsertStory = z.infer<typeof insertStorySchema>;

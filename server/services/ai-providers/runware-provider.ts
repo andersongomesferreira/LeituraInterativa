@@ -73,72 +73,40 @@ export class RunwareProvider implements AIProvider {
     }
     
     try {
-      // Simple health check by making a minimal request to the status endpoint
-      const response = await fetch(`${this.baseUrl}/status`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // For Runware, simply check if API key exists - no need to make a test API call
+      // as their free tier has limited requests and we don't want to waste them on checks
+      this.status.isAvailable = true;
+      this.status.lastChecked = new Date();
+      this.status.statusMessage = 'API key is configured and provider is available';
       
       const endTime = Date.now();
       const responseTime = endTime - startTime;
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          isHealthy: false,
-          responseTime,
-          timestamp: new Date(),
-          message: `API error: ${response.status} ${response.statusText}`,
-          errors: errorText
-        };
-      }
-      
-      // Get quota information if available
-      const data = await response.json();
-      let quotaRemaining = undefined;
-      let quotaTotal = undefined;
-      
-      if (data && data.quota) {
-        quotaRemaining = data.quota.remaining;
-        quotaTotal = data.quota.total;
-      }
-      
       // Update provider status
-      this.status.isAvailable = true;
       this.status.responseTime = responseTime;
-      this.status.lastChecked = new Date();
-      this.status.statusMessage = 'Service is healthy';
-      this.status.quotaRemaining = quotaRemaining;
-      this.status.quotaTotal = quotaTotal;
       
       return {
         isHealthy: true,
         responseTime,
         timestamp: new Date(),
-        message: 'Service is healthy',
-        quotaStatus: quotaRemaining && quotaTotal ? {
-          remaining: quotaRemaining,
-          total: quotaTotal
-        } : undefined
+        message: 'API key is configured and provider is available'
       };
     } catch (error) {
       const endTime = Date.now();
+      const errorMessage = error instanceof Error ? error.message : String(error);
       
       // Update provider status
       this.status.isAvailable = false;
       this.status.responseTime = endTime - startTime;
       this.status.lastChecked = new Date();
-      this.status.statusMessage = `Error: ${error.message}`;
+      this.status.statusMessage = `Error: ${errorMessage}`;
       
       return {
         isHealthy: false,
         responseTime: endTime - startTime,
         timestamp: new Date(),
-        message: `Error: ${error.message}`,
-        errors: error
+        message: `Error: ${errorMessage}`,
+        errors: error instanceof Error ? error : new Error(errorMessage)
       };
     }
   }
@@ -149,7 +117,9 @@ export class RunwareProvider implements AIProvider {
   async generateText(params: TextGenerationParams): Promise<TextGenerationResult> {
     return {
       success: false,
-      text: '',
+      content: '',
+      model: 'none',
+      provider: this.id,
       error: 'Text generation not supported by Runware provider'
     };
   }
@@ -295,10 +265,13 @@ export class RunwareProvider implements AIProvider {
         error: 'No image generated in response'
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         success: false,
         imageUrl: '',
-        error: `Error: ${error.message}`
+        error: `Error: ${errorMessage}`,
+        provider: this.id,
+        model: 'none'
       };
     }
   }

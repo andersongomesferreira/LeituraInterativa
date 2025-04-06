@@ -45,6 +45,7 @@ export interface IStorage {
   getStory(id: number): Promise<Story | undefined>;
   getStoriesByChildId(childId: number): Promise<Story[]>;
   createStory(story: InsertStory): Promise<Story>;
+  updateStory(id: number, story: Partial<InsertStory>): Promise<Story | undefined>;
   
   // Reading session methods
   getReadingSession(id: number): Promise<ReadingSession | undefined>;

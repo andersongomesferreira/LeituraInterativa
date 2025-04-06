@@ -315,7 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Story generation route
   app.post("/api/stories/generate", isAuthenticated, async (req, res) => {
     try {
-      const { characters, theme, ageGroup, childName } = req.body;
+      const { characters, theme, ageGroup, childName, textOnly } = req.body;
       
       if (!characters || !theme || !ageGroup) {
         return res.status(400).json({ message: "Dados insuficientes para gerar história" });
@@ -364,7 +364,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ageGroup,
         imageUrl: "",
         characterIds: characters,
-        themeId: theme
+        themeId: theme,
+        textOnly: !!textOnly // Convert to boolean in case it's undefined
       });
       
       // Criar uma versão limpa da resposta
@@ -433,7 +434,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const characterNames = (await Promise.all(characterPromises)).filter(name => name.length > 0);
       
       // Tratar geração de imagens em segundo plano (não bloquear a resposta)
-      if (processedChapters.some(chapter => !chapter.imageUrl)) {
+      // Pular geração de imagens se a história estiver marcada como somente texto
+      if (!story.textOnly && processedChapters.some(chapter => !chapter.imageUrl)) {
         // Iniciar processo de geração de imagens em segundo plano
         (async () => {
           try {
@@ -458,6 +460,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Processar capítulos sem imagens
             for (let i = 0; i < processedChapters.length; i++) {
               const chapter = processedChapters[i];
+              
+              // Verificar novamente se a história foi alterada para o modo somente texto
+              const refreshedStory = await storage.getStory(story.id);
+              if (refreshedStory?.textOnly) {
+                console.log(`História ${story.id} foi alterada para modo somente texto. Interrompendo geração de ilustrações.`);
+                break;
+              }
               
               // Se o capítulo não tiver URL da imagem, gerar de forma assíncrona
               if (!chapter.imageUrl) {
@@ -619,6 +628,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "História não encontrada" });
       }
       
+      // Verificar se a história está configurada para modo somente texto
+      if (story.textOnly) {
+        return res.status(400).json({ 
+          message: "Esta história está configurada para modo somente texto. Não é possível gerar ilustrações.",
+          textOnly: true
+        });
+      }
+      
       // Extrair capítulos
       const chapters = extractChapters(story.content);
       if (chapters.length === 0) {
@@ -673,6 +690,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (let i = 0; i < chapters.length; i++) {
             try {
               console.log(`Gerando ilustração para o capítulo ${i + 1}/${chapters.length}: "${chapters[i].title}"`);
+              
+              // Verificar novamente se a história foi alterada para o modo somente texto
+              // (caso o usuário tenha alterado a configuração em outro lugar durante o processamento)
+              const refreshedStory = await storage.getStory(storyId);
+              if (refreshedStory?.textOnly) {
+                console.log(`História ${storyId} foi alterada para modo somente texto. Interrompendo geração de ilustrações.`);
+                break;
+              }
               
               // Obter descrições atualizadas dos personagens após ilustrações anteriores
               const updatedCharacterDescriptions = await characterConsistencyService.getCharacterDescriptions(

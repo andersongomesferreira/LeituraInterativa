@@ -29,6 +29,7 @@ interface Story {
   summary?: string;
   readingTime?: number;
   chapters?: Chapter[];
+  textOnly?: boolean;
 }
 
 interface Character {
@@ -43,7 +44,7 @@ interface StoryReaderProps {
   textOnly?: boolean;
 }
 
-const StoryReader = ({ storyId, childId, textOnly = false }: StoryReaderProps) => {
+const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: StoryReaderProps) => {
   const [currentChapter, setCurrentChapter] = useState(0);
   const [progress, setProgress] = useState(0);
   const [imageGenerating, setImageGenerating] = useState(false);
@@ -209,9 +210,12 @@ const StoryReader = ({ storyId, childId, textOnly = false }: StoryReaderProps) =
     }
   }, [story, currentChapter]);
   
+  // Compute if we're in text-only mode (either from props or story data)
+  const isTextOnlyMode = propTextOnly || story?.textOnly || false;
+  
   // Auto-generate illustrations when story loads (if not in text-only mode)
   useEffect(() => {
-    if (story && !textOnly && !generateAllIllustrationsMutation.isPending) {
+    if (story && !isTextOnlyMode && !generateAllIllustrationsMutation.isPending) {
       // Check if any chapters need illustrations
       const needsIllustrations = story.chapters?.some(chapter => !chapter.imageUrl);
       
@@ -220,7 +224,7 @@ const StoryReader = ({ storyId, childId, textOnly = false }: StoryReaderProps) =
         generateAllIllustrationsMutation.mutate();
       }
     }
-  }, [story, textOnly]);
+  }, [story, isTextOnlyMode]);
 
   // Navigation between chapters
   const goToNextChapter = () => {
@@ -294,9 +298,16 @@ const StoryReader = ({ storyId, childId, textOnly = false }: StoryReaderProps) =
                 }).join(", ")}
               </CardDescription>
             </div>
-            <Badge variant="outline" className="text-xs">
-              {story.ageGroup} anos
-            </Badge>
+            <div className="flex flex-col gap-1 items-end">
+              <Badge variant="outline" className="text-xs">
+                {story.ageGroup} anos
+              </Badge>
+              {isTextOnlyMode && (
+                <Badge variant="secondary" className="text-xs">
+                  Modo somente texto
+                </Badge>
+              )}
+            </div>
           </div>
           
           <Progress value={progress} className="h-2 mt-4" />
@@ -313,7 +324,7 @@ const StoryReader = ({ storyId, childId, textOnly = false }: StoryReaderProps) =
                 <h2 className="text-xl font-bold text-primary">
                   {currentChapterContent.title}
                 </h2>
-                {!textOnly && (
+                {!isTextOnlyMode && (
                   <div className="flex-none">
                     <Badge variant="outline" className="text-xs flex items-center gap-1">
                       <Image className="h-3 w-3" /> Ilustrações automáticas
@@ -322,7 +333,7 @@ const StoryReader = ({ storyId, childId, textOnly = false }: StoryReaderProps) =
                 )}
               </div>
               
-              {!textOnly && currentChapterContent.imageUrl ? (
+              {!isTextOnlyMode && currentChapterContent.imageUrl ? (
                 <div className="mb-6 rounded-lg overflow-hidden shadow-md">
                   <img 
                     src={currentChapterContent.imageUrl} 
@@ -330,14 +341,14 @@ const StoryReader = ({ storyId, childId, textOnly = false }: StoryReaderProps) =
                     className="w-full h-auto object-cover"
                   />
                 </div>
-              ) : !textOnly && (imageGenerating || generateImageMutation.isPending) ? (
+              ) : !isTextOnlyMode && (imageGenerating || generateImageMutation.isPending) ? (
                 <div className="mb-6 flex items-center justify-center bg-muted h-64 rounded-lg">
                   <div className="text-center">
                     <RefreshCw className="h-10 w-10 animate-spin mx-auto mb-2 text-primary/60" />
                     <p className="text-muted-foreground">Gerando ilustração...</p>
                   </div>
                 </div>
-              ) : !textOnly ? (
+              ) : !isTextOnlyMode ? (
                 <div className="mb-6 flex items-center justify-center bg-muted/30 border border-dashed border-muted-foreground/50 h-64 rounded-lg">
                   <div className="text-center space-y-3">
                     <div className="relative w-full h-2 bg-muted rounded-full overflow-hidden mb-2">
