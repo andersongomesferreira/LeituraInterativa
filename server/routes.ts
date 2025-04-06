@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
@@ -10,6 +10,23 @@ import {
   extractChapters,
   getAIProvidersStatus
 } from "./services/ai-service";
+import { 
+  aiProviderManager 
+} from "./services/ai-providers/provider-manager";
+import { 
+  insertCharacterSchema, 
+  insertThemeSchema,
+  insertUserSchema, 
+  insertChildProfileSchema, 
+  insertStorySchema, 
+  insertReadingSessionSchema  
+} from "@shared/schema";
+import { z } from "zod";
+import session from "express-session";
+import passport from "passport";
+import { Strategy as LocalStrategy } from "passport-local";
+import bcrypt from "bcryptjs";
+import MemoryStore from "memorystore";
 
 // Import API key routes
 import apiKeysRoutes from './routes/api-keys';
@@ -38,13 +55,6 @@ interface GenerateImageOptions {
     previousImages?: string[];
   }>;
 }
-import { insertUserSchema, insertChildProfileSchema, insertStorySchema, insertReadingSessionSchema } from "@shared/schema";
-import { z } from "zod";
-import session from "express-session";
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
-import bcrypt from "bcryptjs";
-import MemoryStore from "memorystore";
 
 declare module "express-session" {
   interface SessionData {
@@ -113,6 +123,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return next();
     }
     res.status(401).json({ message: "Não autorizado" });
+  };
+  
+  // Middleware to verify admin role
+  const isAdmin = (req: Request, res: Response, next: Function) => {
+    if (req.isAuthenticated() && req.user && (req.user as any).role === 'admin') {
+      return next();
+    }
+    res.status(403).json({ message: "Acesso negado. Apenas administradores têm permissão." });
   };
 
   // Authentication routes
@@ -1005,6 +1023,344 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  // Admin routes
+  // Admin Dashboard Overview
+  app.get('/api/admin/dashboard', isAdmin, async (req, res) => {
+    try {
+      // Get counts of users, stories, and active sessions
+      const users = await storage.getAllUsers();
+      const stories = await storage.getAllStories();
+      const subscriptions = await storage.getAllUserSubscriptions();
+      
+      // Get AI providers status
+      const providersStatus = getAIProvidersStatus();
+      
+      res.json({
+        counts: {
+          users: users.length,
+          stories: stories.length,
+          subscriptions: subscriptions.length,
+          activeSubscriptions: subscriptions.filter(s => s.status === 'active').length
+        },
+        aiProviders: providersStatus
+      });
+    } catch (error) {
+      console.error('Admin dashboard error:', error);
+      res.status(500).json({ message: 'Erro ao carregar o painel de administração' });
+    }
+  });
+  
+  // Admin User Management
+  app.get('/api/admin/users', isAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      // Remove passwords from response
+      const usersWithoutPasswords = users.map(user => {
+        const { password, ...userWithoutPassword } = user;
+        return userWithoutPassword;
+      });
+      res.json(usersWithoutPasswords);
+    } catch (error) {
+      res.status(500).json({ message: 'Erro ao listar usuários' });
+    }
+  });
+  
+  app.get('/api/admin/users/:id', isAdmin, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: 'ID inválido' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'Usuário não encontrado' });
+      }
+      
+      // Get user's subscription and profiles
+      const subscription = await storage.getUserSubscription(userId);
+      const profiles = await storage.getChildProfilesByParentId(userId);
+      const stories = await storage.getStoriesByUserId(userId);
+      
+      // Remove password from response
+      const { password, ...userWithoutPassword } = user;
+      
+      res.json({
+        user: userWithoutPassword,
+        subscription,
+        profiles,
+        storiesCount: stories.length
+      });
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+      res.status(500).json({ message: 'Erro ao buscar detalhes do usuário' });
+    }
+  });
+  
+  // Admin Subscription Management
+  app.get('/api/admin/subscriptions', isAdmin, async (req, res) => {
+    try {
+      const subscriptions = await storage.getAllUserSubscriptions();
+      res.json(subscriptions);
+    } catch (error) {
+      res.status(500).json({ message: 'Erro ao listar assinaturas' });
+    }
+  });
+  
+  app.put('/api/admin/subscriptions/:id', isAdmin, async (req, res) => {
+    try {
+      const subscriptionId = parseInt(req.params.id);
+      if (isNaN(subscriptionId)) {
+        return res.status(400).json({ message: 'ID inválido' });
+      }
+      
+      const updatedSubscription = await storage.updateUserSubscription(
+        subscriptionId, 
+        req.body
+      );
+      
+      if (!updatedSubscription) {
+        return res.status(404).json({ message: 'Assinatura não encontrada' });
+      }
+      
+      res.json(updatedSubscription);
+    } catch (error) {
+      console.error('Error updating subscription:', error);
+      res.status(500).json({ message: 'Erro ao atualizar assinatura' });
+    }
+  });
+  
+  // Admin Story Management
+  app.get('/api/admin/stories', isAdmin, async (req, res) => {
+    try {
+      const stories = await storage.getAllStories();
+      res.json(stories);
+    } catch (error) {
+      res.status(500).json({ message: 'Erro ao listar histórias' });
+    }
+  });
+  
+  app.get('/api/admin/stories/:id', isAdmin, async (req, res) => {
+    try {
+      const storyId = parseInt(req.params.id);
+      if (isNaN(storyId)) {
+        return res.status(400).json({ message: 'ID inválido' });
+      }
+      
+      const story = await storage.getStory(storyId);
+      if (!story) {
+        return res.status(404).json({ message: 'História não encontrada' });
+      }
+      
+      // Extract chapters
+      const chapters = extractChapters(story.content);
+      
+      res.json({
+        ...story,
+        chapters
+      });
+    } catch (error) {
+      console.error('Error fetching story details:', error);
+      res.status(500).json({ message: 'Erro ao buscar detalhes da história' });
+    }
+  });
+  
+  // Admin AI System Management
+  app.get('/api/admin/ai-providers', isAdmin, async (req, res) => {
+    try {
+      const providersStatus = getAIProvidersStatus();
+      res.json(providersStatus);
+    } catch (error) {
+      console.error('Error fetching AI providers:', error);
+      res.status(500).json({ message: 'Erro ao buscar status dos provedores de IA' });
+    }
+  });
+  
+  app.post('/api/admin/ai-providers/:providerId/test', isAdmin, async (req, res) => {
+    try {
+      const { providerId } = req.params;
+      const { type, options } = req.body;
+      
+      if (!providerId) {
+        return res.status(400).json({ message: 'ID do provedor é obrigatório' });
+      }
+      
+      if (!type || !['text', 'image'].includes(type)) {
+        return res.status(400).json({ message: 'Tipo de teste inválido. Use "text" ou "image"' });
+      }
+      
+      let result;
+      if (type === 'text') {
+        const textParams = {
+          prompt: options.prompt || "Gere um pequeno teste para verificar o funcionamento do serviço.",
+          ...options
+        };
+        result = await aiProviderManager.generateText({...textParams, provider: providerId}, 'admin');
+      } else {
+        const imageParams = {
+          prompt: options.prompt || "Uma imagem de teste simples, estilo cartoon, fundo colorido",
+          ...options
+        };
+        result = await aiProviderManager.generateImage({...imageParams, provider: providerId}, 'admin');
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error(`Error testing AI provider:`, error);
+      res.status(500).json({ 
+        message: 'Erro ao testar provedor de IA',
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Admin Character and Theme Management
+  app.get('/api/admin/characters', isAdmin, async (req, res) => {
+    try {
+      const characters = await storage.getAllCharacters();
+      res.json(characters);
+    } catch (error) {
+      res.status(500).json({ message: 'Erro ao listar personagens' });
+    }
+  });
+  
+  app.post('/api/admin/characters', isAdmin, async (req, res) => {
+    try {
+      const validatedData = insertCharacterSchema.parse(req.body);
+      const character = await storage.createCharacter(validatedData);
+      res.status(201).json(character);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Dados inválidos', errors: error.errors });
+      }
+      res.status(500).json({ message: 'Erro ao criar personagem' });
+    }
+  });
+  
+  app.get('/api/admin/themes', isAdmin, async (req, res) => {
+    try {
+      const themes = await storage.getAllThemes();
+      res.json(themes);
+    } catch (error) {
+      res.status(500).json({ message: 'Erro ao listar temas' });
+    }
+  });
+  
+  app.post('/api/admin/themes', isAdmin, async (req, res) => {
+    try {
+      const validatedData = insertThemeSchema.parse(req.body);
+      const theme = await storage.createTheme(validatedData);
+      res.status(201).json(theme);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Dados inválidos', errors: error.errors });
+      }
+      res.status(500).json({ message: 'Erro ao criar tema' });
+    }
+  });
+  
+  // Admin AI Testing Utilities
+  app.post('/api/admin/test/generate-text', isAdmin, async (req, res) => {
+    try {
+      const { prompt, options } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ message: 'Prompt é obrigatório' });
+      }
+      
+      const textParams = {
+        prompt,
+        ...options
+      };
+      
+      const result = await aiProviderManager.generateText(textParams, 'admin');
+      res.json(result);
+    } catch (error) {
+      console.error('Error testing text generation:', error);
+      res.status(500).json({ 
+        message: 'Erro ao testar geração de texto',
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  app.post('/api/admin/test/generate-image', isAdmin, async (req, res) => {
+    try {
+      const { prompt, options } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ message: 'Prompt é obrigatório' });
+      }
+      
+      const result = await generateImage(prompt, options, 'admin');
+      res.json(result);
+    } catch (error) {
+      console.error('Error testing image generation:', error);
+      res.status(500).json({ 
+        message: 'Erro ao testar geração de imagem',
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Admin initialization endpoint - creates or updates the admin user
+  app.post('/api/admin/initialize', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      // Check if this is the special admin initialization email
+      if (email !== 'andersongomes86@gmail.com') {
+        return res.status(403).json({ message: 'Email não autorizado para inicializar admin' });
+      }
+      
+      const existingUser = await storage.getUserByEmail(email);
+      
+      if (existingUser) {
+        // Update existing user to have admin role
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+        
+        const updatedUser = await storage.updateUser(existingUser.id, { 
+          role: 'admin',
+          password: hashedPassword
+        });
+        
+        if (!updatedUser) {
+          return res.status(500).json({ message: 'Erro ao atualizar usuário admin' });
+        }
+        
+        const { password: _, ...userWithoutPassword } = updatedUser;
+        
+        return res.json({ 
+          message: 'Usuário admin atualizado com sucesso',
+          user: userWithoutPassword
+        });
+      } else {
+        // Create new admin user
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+        
+        const user = await storage.createUser({
+          email,
+          username: 'admin',
+          password: hashedPassword,
+          name: 'Administrador',
+          role: 'admin'
+        });
+        
+        const { password: _, ...userWithoutPassword } = user;
+        
+        res.status(201).json({
+          message: 'Usuário admin criado com sucesso',
+          user: userWithoutPassword
+        });
+      }
+    } catch (error) {
+      console.error('Admin initialization error:', error);
+      res.status(500).json({ message: 'Erro ao inicializar usuário admin' });
     }
   });
 

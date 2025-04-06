@@ -59,6 +59,19 @@ export class DatabaseStorage implements IStorage {
     
     return user;
   }
+  
+  async updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set(user)
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser;
+  }
+  
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
 
   // Child profile methods
   async getChildProfile(id: number): Promise<ChildProfile | undefined> {
@@ -153,10 +166,52 @@ export class DatabaseStorage implements IStorage {
       .from(stories)
       .where(inArray(stories.id, storyIds));
   }
+  
+  async getStoriesByUserId(userId: number): Promise<Story[]> {
+    // First get all child profiles for this user
+    const childProfiles = await this.getChildProfilesByParentId(userId);
+    
+    if (childProfiles.length === 0) {
+      return [];
+    }
+    
+    // Get child IDs
+    const childIds = childProfiles.map(profile => profile.id);
+    
+    // Now get all reading sessions for these children
+    const sessions = await db.select()
+      .from(readingSessions)
+      .where(inArray(readingSessions.childId, childIds));
+    
+    if (sessions.length === 0) {
+      return [];
+    }
+    
+    // Extract the story ids
+    const storyIds = sessions.map(session => session.storyId);
+    
+    // Then get all stories with those ids
+    return await db.select()
+      .from(stories)
+      .where(inArray(stories.id, storyIds));
+  }
+  
+  async getAllStories(): Promise<Story[]> {
+    return await db.select().from(stories);
+  }
 
   async createStory(story: InsertStory): Promise<Story> {
     const [newStory] = await db.insert(stories).values(story).returning();
     return newStory;
+  }
+  
+  async updateStory(id: number, story: Partial<InsertStory>): Promise<Story | undefined> {
+    const [updatedStory] = await db
+      .update(stories)
+      .set(story)
+      .where(eq(stories.id, id))
+      .returning();
+    return updatedStory;
   }
 
   // Reading session methods
@@ -210,6 +265,10 @@ export class DatabaseStorage implements IStorage {
         eq(userSubscriptions.status, "active")
       ));
     return subscription;
+  }
+  
+  async getAllUserSubscriptions(): Promise<UserSubscription[]> {
+    return await db.select().from(userSubscriptions);
   }
 
   async createUserSubscription(subscription: InsertUserSubscription): Promise<UserSubscription> {

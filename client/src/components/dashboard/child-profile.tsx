@@ -37,13 +37,13 @@ import { Baby, Blocks, BookOpen, User, Clock, BookOpen as BookIcon } from "lucid
 const getAgeIcon = (ageGroup: string) => {
   switch (ageGroup) {
     case "3-5":
-      return <Baby className="mr-2 h-4 w-4" />;
+      return <Baby className="h-6 w-6" />;
     case "6-8":
-      return <Blocks className="mr-2 h-4 w-4" />;
+      return <Blocks className="h-6 w-6" />;
     case "9-12":
-      return <BookOpen className="mr-2 h-4 w-4" />;
+      return <BookOpen className="h-6 w-6" />;
     default:
-      return <User className="mr-2 h-4 w-4" />;
+      return <User className="h-6 w-6" />;
   }
 };
 
@@ -268,7 +268,7 @@ export const ChildProfileCard = ({
           className="bg-secondary hover:bg-secondary-dark"
         >
           <Link href={`/dashboard/child/${profile.id}`}>
-            <a>Ver Histórias</a>
+            Ver Histórias
           </Link>
         </Button>
       </div>

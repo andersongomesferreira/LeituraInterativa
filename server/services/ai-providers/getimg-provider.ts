@@ -190,7 +190,7 @@ export class GetImgProvider implements AIProvider {
       
       // Configure options based on params
       const requestBody = {
-        model: "sdxl-lightning", // Restored to the model in logs, as the error was about prompt length, not model name
+        model: "sdxl", // Updated to "sdxl" instead of "sdxl-lightning" which is no longer valid
         prompt: enhancedPrompt,
         negative_prompt: negativePrompt,
         width: 512, // Reduced from 1024 to improve performance

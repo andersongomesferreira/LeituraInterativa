@@ -21,6 +21,8 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
   
   // Child profile methods
   getChildProfile(id: number): Promise<ChildProfile | undefined>;
@@ -44,6 +46,8 @@ export interface IStorage {
   // Story methods
   getStory(id: number): Promise<Story | undefined>;
   getStoriesByChildId(childId: number): Promise<Story[]>;
+  getStoriesByUserId(userId: number): Promise<Story[]>;
+  getAllStories(): Promise<Story[]>;
   createStory(story: InsertStory): Promise<Story>;
   updateStory(id: number, story: Partial<InsertStory>): Promise<Story | undefined>;
   
@@ -57,6 +61,7 @@ export interface IStorage {
   getAllSubscriptionPlans(): Promise<SubscriptionPlan[]>;
   getSubscriptionPlan(id: number): Promise<SubscriptionPlan | undefined>;
   getUserSubscription(userId: number): Promise<UserSubscription | undefined>;
+  getAllUserSubscriptions(): Promise<UserSubscription[]>;
   createUserSubscription(subscription: InsertUserSubscription): Promise<UserSubscription>;
   updateUserSubscription(id: number, subscription: Partial<InsertUserSubscription>): Promise<UserSubscription | undefined>;
 }
@@ -285,6 +290,19 @@ export class MemStorage implements IStorage {
     
     return user;
   }
+  
+  async updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined> {
+    const existingUser = this.users.get(id);
+    if (!existingUser) return undefined;
+    
+    const updatedUser: User = { ...existingUser, ...user };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+  
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
 
   // Child profile methods
   async getChildProfile(id: number): Promise<ChildProfile | undefined> {
@@ -390,6 +408,27 @@ export class MemStorage implements IStorage {
       (story) => storyIds.has(story.id),
     );
   }
+  
+  async getStoriesByUserId(userId: number): Promise<Story[]> {
+    // First get all child profiles for this user
+    const childProfiles = await this.getChildProfilesByParentId(userId);
+    const childIds = childProfiles.map(profile => profile.id);
+    
+    // Now get all stories associated with these children
+    const storyIds = new Set<number>();
+    for (const childId of childIds) {
+      const sessions = await this.getReadingSessionsByChildId(childId);
+      sessions.forEach(session => storyIds.add(session.storyId));
+    }
+    
+    return Array.from(this.stories.values()).filter(
+      (story) => storyIds.has(story.id)
+    );
+  }
+  
+  async getAllStories(): Promise<Story[]> {
+    return Array.from(this.stories.values());
+  }
 
   async createStory(story: InsertStory): Promise<Story> {
     const id = this.currentStoryId++;
@@ -474,6 +513,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.userSubscriptions.values()).find(
       (subscription) => subscription.userId === userId && subscription.status === "active",
     );
+  }
+  
+  async getAllUserSubscriptions(): Promise<UserSubscription[]> {
+    return Array.from(this.userSubscriptions.values());
   }
 
   async createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
