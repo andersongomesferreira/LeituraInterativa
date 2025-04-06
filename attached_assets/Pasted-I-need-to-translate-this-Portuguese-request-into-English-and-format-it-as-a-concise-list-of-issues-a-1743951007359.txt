@@ -1,0 +1,40 @@
+I need to translate this Portuguese request into English and format it as a concise list of issues and improvements, focusing on technical problems and UX enhancements.
+
+The key points from the request are:
+- The redirection problem after login persists (no redirection)
+- Generated images don't match the stories (should always be cartoon-style, never realistic)
+- Not all characters have images (drawings)
+- Remove the text highlighting functionality
+- Add functionality to store generated stories and track reading progress
+- Improve the site's visual design and navigation
+- Make the site more attractive to children
+
+I'll organize these into a concise, bullet-point format in English.
+
+# LeiturinhaBot - Updated Issues Report
+
+## Persistent Technical Issues
+- **Login Redirection Failure**: System still not redirecting users after successful login
+- **Image-Story Mismatch**: Generated images don't align with story content
+- **Image Style Inconsistency**: Some images appear realistic instead of cartoon-style
+- **Missing Character Illustrations**: Several characters lack any associated images
+
+## Required Feature Changes
+- **Remove**: Text highlighting functionality
+- **Add**: Story storage system for saving generated content
+- **Add**: Reading progress tracking functionality
+- **Standardize**: All illustrations must be cartoon-style drawings (never realistic)
+
+## UX Improvement Requirements
+- **Child-Appealing Design**: Implement more colorful, playful visual elements
+- **Intuitive Navigation**: Simplify site structure for child users
+- **Visual Engagement**: Add animated elements and interactive components
+- **Consistent Style**: Ensure uniform cartoon aesthetic throughout platform
+
+## Implementation Priorities
+1. Fix login redirection issue
+2. Implement story storage and progress tracking
+3. Replace/standardize all character illustrations as cartoons
+4. Remove text highlighting feature
+5. Redesign interface with child-appealing elements
+6. Improve overall navigation and site structure

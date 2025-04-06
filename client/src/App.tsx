@@ -9,6 +9,7 @@ import Register from "@/pages/auth/register";
 import ParentDashboard from "@/pages/dashboard/parent";
 import ChildDashboard from "@/pages/dashboard/child";
 import StoryGenerator from "@/pages/story/generator";
+import StoryWizard from "@/pages/story/wizard";
 import ReadStory from "@/pages/story/read";
 import SubscriptionPlans from "@/pages/subscription/plans";
 import NotFound from "@/pages/not-found";
@@ -27,6 +28,7 @@ function Router() {
           <Route path="/dashboard/parent" component={ParentDashboard} />
           <Route path="/dashboard/child/:id" component={ChildDashboard} />
           <Route path="/story/create" component={StoryGenerator} />
+          <Route path="/story/wizard" component={StoryWizard} />
           <Route path="/story/read/:id" component={ReadStory} />
           <Route path="/subscription/plans" component={SubscriptionPlans} />
           <Route component={NotFound} />

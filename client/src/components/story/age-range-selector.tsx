@@ -1,7 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Baby, Blocks, BookOpen } from "lucide-react";
+import { Baby, Blocks, BookOpen, Check } from "lucide-react";
 
 interface AgeRangeSelectorProps {
   value: string;
@@ -10,66 +8,79 @@ interface AgeRangeSelectorProps {
 
 const ageRanges = [
   {
-    value: "3-5",
-    label: "3-5 anos",
-    icon: <Baby className="h-5 w-5" />,
-    description: "Histórias curtas com vocabulário simples"
+    key: "3-5",
+    icon: <Baby className="text-white text-xl" />,
+    bgColor: "bg-primary-light",
+    title: "3-5 anos",
+    description: "Histórias curtas com vocabulário simples",
+    features: [
+      "Frases curtas e simples",
+      "Personagens amigáveis",
+    ],
   },
   {
-    value: "6-8",
-    label: "6-8 anos",
-    icon: <Blocks className="h-5 w-5" />,
-    description: "Narrativas mais elaboradas sobre amizade e valores"
+    key: "6-8",
+    icon: <Blocks className="text-white text-xl" />,
+    bgColor: "bg-secondary-light",
+    title: "6-8 anos",
+    description: "Narrativas mais elaboradas com personagens cativantes",
+    features: [
+      "Histórias com capítulos curtos",
+      "Vocabulário mais diversificado",
+    ],
   },
   {
-    value: "9-12",
-    label: "9-12 anos",
-    icon: <BookOpen className="h-5 w-5" />,
-    description: "Aventuras complexas com desenvolvimento de personagens"
-  }
+    key: "9-12",
+    icon: <BookOpen className="text-white text-xl" />,
+    bgColor: "bg-accent",
+    title: "9-12 anos",
+    description: "Aventuras mais complexas e elaboradas",
+    features: [
+      "Narrativas mais complexas",
+      "Temas educativos avançados",
+    ],
+  },
 ];
 
 const AgeRangeSelector = ({ value, onChange }: AgeRangeSelectorProps) => {
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="mb-4">
-          <h3 className="text-lg font-heading font-bold mb-2">Faixa Etária</h3>
-          <p className="text-sm text-muted-foreground">
-            Selecione a faixa etária da criança para adaptar o conteúdo da história
-          </p>
-        </div>
-        
-        <RadioGroup
-          defaultValue={value}
-          value={value}
-          onValueChange={onChange}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4"
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {ageRanges.map((range) => (
+        <Card 
+          key={range.key}
+          className={`
+            rounded-xl p-4 cursor-pointer transition-all
+            ${value === range.key 
+              ? "bg-primary/10 border-primary shadow-md" 
+              : "bg-neutral-100 hover:bg-white hover:shadow-md"}
+          `}
+          onClick={() => onChange(range.key)}
         >
-          {ageRanges.map((range) => (
-            <div key={range.value}>
-              <RadioGroupItem
-                value={range.value}
-                id={`age-${range.value}`}
-                className="peer sr-only"
-              />
-              <Label
-                htmlFor={`age-${range.value}`}
-                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-2">
-                  {range.icon}
-                </div>
-                <div className="text-center">
-                  <div className="font-bold">{range.label}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{range.description}</div>
-                </div>
-              </Label>
+          <CardContent className="p-0">
+            <div className="flex items-start space-x-4">
+              <div className={`${range.bgColor} rounded-full w-12 h-12 flex-shrink-0 flex items-center justify-center mt-1`}>
+                {range.icon}
+              </div>
+              <div>
+                <h3 className="text-lg font-heading font-bold mb-1 flex items-center">
+                  {range.title}
+                  {value === range.key && <Check className="ml-2 h-4 w-4 text-primary" />}
+                </h3>
+                <p className="text-sm text-neutral-600 mb-2">{range.description}</p>
+                <ul className="space-y-1 text-xs">
+                  {range.features.map((feature, idx) => (
+                    <li key={idx} className="flex items-center">
+                      <span className="bg-primary/20 rounded-full h-3 w-3 flex-shrink-0 mr-2"></span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-          ))}
-        </RadioGroup>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 };
 
