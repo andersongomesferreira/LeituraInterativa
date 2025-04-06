@@ -41,10 +41,13 @@ const CharacterStep: React.FC<CharacterStepProps> = ({
     }
   };
 
-  // Filtra personagens por faixa etária
-  const filteredCharacters = characters.filter((character) =>
-    character.ageGroups.includes(ageGroup)
-  );
+  // Filtra personagens por faixa etária, verificando se ageGroups existe
+  const filteredCharacters = characters.filter((character) => {
+    // Verifica se o personagem tem a propriedade ageGroups e se é um array
+    return Array.isArray(character.ageGroups) 
+      ? character.ageGroups.includes(ageGroup)
+      : true; // Se não tiver a propriedade, incluir todos por padrão
+  });
 
   if (isLoading) {
     return (

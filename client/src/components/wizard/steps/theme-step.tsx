@@ -27,10 +27,13 @@ const ThemeStep: React.FC<ThemeStepProps> = ({
     queryKey: ["/api/themes"],
   });
 
-  // Filtra temas por faixa etária
-  const filteredThemes = themes.filter((theme) =>
-    theme.ageGroups.includes(ageGroup)
-  );
+  // Filtra temas por faixa etária, verificando se ageGroups existe
+  const filteredThemes = themes.filter((theme) => {
+    // Verifica se o tema tem a propriedade ageGroups e se é um array
+    return Array.isArray(theme.ageGroups) 
+      ? theme.ageGroups.includes(ageGroup)
+      : true; // Se não tiver a propriedade, incluir todos por padrão
+  });
 
   if (isLoading) {
     return (
