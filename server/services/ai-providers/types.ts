@@ -70,6 +70,11 @@ export interface TextGenerationResult {
     totalTokens: number;
   };
   metadata?: any;
+  
+  // For error handling in providers
+  success?: boolean;
+  error?: string;
+  text?: string; // Alternative to content for some providers
 }
 
 // Parâmetros para geração de imagem
@@ -83,6 +88,8 @@ export interface ImageGenerationParams {
   model?: string;
   ageGroup?: string;
   mood?: string;
+  seed?: number; // Seed for reproducible generations
+  batchSize?: number; // Number of images to generate in a batch
   characterDescriptions?: CharacterDescription[]; // Descrições de personagens para manter consistência
   storyId?: number; // ID da história para rastreamento de consistência
   chapterId?: number; // ID do capítulo para progressão
@@ -105,11 +112,17 @@ export interface CharacterDescription {
 export interface ImageGenerationResult {
   imageUrl: string;
   base64Image?: string;
-  model: string;
-  provider: string;
-  promptUsed: string;
+  model?: string;
+  provider?: string;
+  promptUsed?: string;
   metadata?: any;
   isBackup?: boolean;
+  
+  // For error handling and provider implementation
+  success?: boolean;
+  error?: string;
+  details?: any;
+  alternativeImages?: string[]; // For batch generation results
 }
 
 // Configuração de roteamento para provedores

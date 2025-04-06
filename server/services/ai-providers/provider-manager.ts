@@ -4,6 +4,8 @@ import { AnthropicProvider } from './anthropic-provider';
 import { StabilityAIProvider } from './stability-provider';
 import { LexicaProvider } from './lexica-provider';
 import { ReplicateProvider } from './replicate-provider';
+import { GetImgProvider } from './getimg-provider';
+import { RunwareProvider } from './runware-provider';
 
 // Backup image URL for when all image generation providers fail
 const BACKUP_IMAGE_URL = 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
@@ -27,21 +29,21 @@ export class AIProviderManager {
     },
     fallbackPolicies: {
       textGeneration: ['anthropic', 'replicate'],
-      imageGeneration: ['stability', 'lexica', 'replicate', 'anthropic']
+      imageGeneration: ['getimg', 'runware', 'stability', 'lexica', 'replicate', 'anthropic']
     },
     userTierLimits: {
       free: {
-        allowedProviders: ['openai', 'replicate'],
+        allowedProviders: ['openai', 'replicate', 'getimg'],
         maxRequests: 10,
         maxTokens: 4000
       },
       plus: {
-        allowedProviders: ['openai', 'anthropic', 'stability', 'lexica', 'replicate'],
+        allowedProviders: ['openai', 'anthropic', 'stability', 'lexica', 'replicate', 'getimg', 'runware'],
         maxRequests: 50,
         maxTokens: 16000
       },
       family: {
-        allowedProviders: ['openai', 'anthropic', 'stability', 'lexica', 'replicate'],
+        allowedProviders: ['openai', 'anthropic', 'stability', 'lexica', 'replicate', 'getimg', 'runware'],
         maxRequests: 100,
         maxTokens: 32000
       }
@@ -55,6 +57,8 @@ export class AIProviderManager {
     this.registerProvider(new StabilityAIProvider());
     this.registerProvider(new LexicaProvider());
     this.registerProvider(new ReplicateProvider());
+    this.registerProvider(new GetImgProvider());
+    this.registerProvider(new RunwareProvider());
     
     // Initialize metrics
     for (const provider of this.providers.values()) {
