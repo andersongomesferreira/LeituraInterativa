@@ -72,12 +72,6 @@ const StoryWizard = () => {
           description: "História criada, mas não foi possível navegar automaticamente para a leitura.",
           variant: "destructive",
         });
-      } else {
-        toast({
-          title: "Aviso",
-          description: "História criada, mas não foi possível navegar automaticamente para a leitura.",
-          variant: "destructive",
-        });
       }
     },
     onError: (error) => {
