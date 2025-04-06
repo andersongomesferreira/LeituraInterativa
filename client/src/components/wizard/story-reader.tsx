@@ -12,6 +12,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 interface Chapter {
   title: string;
   content: string;
+  imagePrompt?: string;
+  imageUrl?: string;
 }
 
 interface Story {
@@ -151,6 +153,16 @@ const StoryReader = ({ storyId, childId }: StoryReaderProps) => {
               <h2 className="text-xl font-bold mb-5 text-primary">
                 {currentChapterContent.title}
               </h2>
+              
+              {currentChapterContent.imageUrl && (
+                <div className="mb-6 rounded-lg overflow-hidden shadow-md">
+                  <img 
+                    src={currentChapterContent.imageUrl} 
+                    alt={`Ilustração para ${currentChapterContent.title}`}
+                    className="w-full h-auto object-cover"
+                  />
+                </div>
+              )}
               
               <div className="font-reading text-lg space-y-4 leading-relaxed">
                 {currentChapterContent.content.split("\n\n").map((paragraph, index) => (

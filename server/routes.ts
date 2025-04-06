@@ -371,9 +371,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Extrair capítulos do conteúdo da história
       const chapters = extractChapters(story.content);
       
+      // Verificar se os capítulos têm imagens, caso contrário, gerar sob demanda
+      const processedChapters = [...chapters];
+      
+      // Tratar geração de imagens em segundo plano (não bloquear a resposta)
+      for (let i = 0; i < processedChapters.length; i++) {
+        const chapter = processedChapters[i];
+        
+        // Se o capítulo tiver um prompt de imagem mas não tiver URL da imagem, gerar em background
+        if (chapter.imagePrompt && !chapter.imageUrl) {
+          // Não usar await aqui, pois não queremos bloquear a resposta
+          (async () => {
+            try {
+              const characters = (story.characterIds || []).map(async (id) => {
+                const char = await storage.getCharacter(id);
+                return char ? char.name : "";
+              });
+              
+              const resolvedCharacters = await Promise.all(characters);
+              const image = await generateImage(chapter.imagePrompt!, {
+                ageGroup: story.ageGroup as any,
+                mood: "adventure"
+              });
+              
+              // Atualizar o capítulo no array
+              processedChapters[i] = {
+                ...chapter,
+                imageUrl: image.imageUrl
+              };
+              
+              // Aqui poderíamos atualizar o banco de dados com a imagem gerada
+              // mas isso exigiria criar novos endpoints para atualizar capítulos ou histórias
+            } catch (error) {
+              console.error(`Erro ao gerar imagem para capítulo ${i+1}:`, error);
+            }
+          })();
+        }
+      }
+      
       res.json({
         ...story,
-        chapters
+        chapters: processedChapters
       });
     } catch (error) {
       console.error("Erro ao buscar história:", error);

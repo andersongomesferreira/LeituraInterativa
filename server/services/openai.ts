@@ -25,6 +25,8 @@ export interface GeneratedStory {
 export interface Chapter {
   title: string;
   content: string;
+  imagePrompt?: string;
+  imageUrl?: string;
 }
 
 export interface GeneratedImage {
@@ -44,9 +46,28 @@ export function extractChapters(content: string): Chapter[] {
     const title = match[1].trim();
     const chapterContent = match[2].trim();
     
+    // Extrair prompt de imagem se estiver definido
+    let imagePrompt = undefined;
+    
+    // Procurar por um marcador de prompt de imagem no conteúdo
+    const promptRegex = /\[image:\s*([^\]]+)\]/i;
+    const promptMatch = chapterContent.match(promptRegex);
+    
+    if (promptMatch) {
+      imagePrompt = promptMatch[1].trim();
+    } else {
+      // Se não encontrar um prompt específico, criar um baseado no título e conteúdo
+      const summary = chapterContent.substring(0, 200); // Pegar os primeiros 200 caracteres para um resumo
+      imagePrompt = `Ilustração para o capítulo "${title}": ${summary}`;
+    }
+    
+    // Remover o marcador de prompt de imagem do conteúdo do capítulo
+    const cleanContent = chapterContent.replace(promptRegex, '').trim();
+    
     chapters.push({
       title,
-      content: chapterContent
+      content: cleanContent,
+      imagePrompt
     });
   }
   
@@ -71,16 +92,23 @@ export function extractChapters(content: string): Chapter[] {
           default: title = `Parte ${chapterNumber}`;
         }
         
+        // Criar um prompt de imagem básico para esse capítulo
+        const imagePrompt = `Ilustração para ${title}: ${chapterContent.substring(0, 150)}`;
+        
         chapters.push({
           title,
-          content: chapterContent
+          content: chapterContent,
+          imagePrompt
         });
       }
     } else {
       // Se houver poucos parágrafos, criamos um único capítulo
+      const imagePrompt = `Ilustração para a história: ${content.substring(0, 200)}`;
+      
       chapters.push({
         title: "A História",
-        content
+        content,
+        imagePrompt
       });
     }
   }
@@ -467,13 +495,13 @@ export async function generateStory(params: StoryParams): Promise<GeneratedStory
     Não use palavras em inglês ou outras línguas. Apenas português brasileiro.
     Não use conteúdo assustador, violento ou inadequado para crianças.
     
-    IMPORTANTE: Divida a história em 3-5 capítulos curtos. Cada capítulo deve ter um título próprio e começar com a formatação "## Nome do Capítulo" (usando a marcação markdown).
+    IMPORTANTE: 
+    1. Divida a história em 3-5 capítulos curtos. Cada capítulo deve ter um título próprio e começar com a formatação "## Nome do Capítulo" (usando a marcação markdown).
+    2. Inicie a história com um título no formato "# Título da História" seguido de um breve resumo introdutório.
+    3. Para cada capítulo, adicione no final uma descrição para uma possível ilustração no formato:
+       [IMAGEM: descrição detalhada de uma cena para ilustrar este capítulo, incluindo personagens e cenário]
     
-    Formate a saída como um objeto JSON com os seguintes campos:
-    - title: Título atraente para a história
-    - content: O texto completo da história, incluindo os títulos dos capítulos com o formato markdown (## Nome do Capítulo)
-    - summary: Um resumo curto da história (1-2 frases)
-    - readingTime: Tempo estimado de leitura em minutos (número)
+    A resposta deve estar em formato markdown, NÃO em JSON.
   `;
 
   if (!process.env.OPENAI_API_KEY) {
@@ -485,8 +513,7 @@ export async function generateStory(params: StoryParams): Promise<GeneratedStory
     
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" }
+      messages: [{ role: "user", content: prompt }]
     });
 
     if (!response.choices || response.choices.length === 0 || !response.choices[0].message.content) {
@@ -494,31 +521,54 @@ export async function generateStory(params: StoryParams): Promise<GeneratedStory
       throw new Error("Resposta da API OpenAI inválida");
     }
 
-    let result;
-    try {
-      result = JSON.parse(response.choices[0].message.content);
-    } catch (parseError) {
-      console.error("Erro ao analisar JSON da resposta:", response.choices[0].message.content);
-      throw new Error("Formato de resposta inválido da API");
-    }
+    const content = response.choices[0].message.content;
     
-    if (!result.title || !result.content) {
-      console.error("Resposta da API não contém campos obrigatórios:", result);
-      throw new Error("Resposta incompleta da API");
-    }
+    // Extrair o título usando regex (# Título)
+    const titleMatch = content.match(/# (.*?)(\n|$)/);
+    const title = titleMatch ? titleMatch[1].trim() : "Aventura Mágica";
     
-    console.log(`História gerada com sucesso: "${result.title}"`);
+    console.log(`História gerada com sucesso: "${title}"`);
+    
+    // Extrair o resumo da história (texto entre o título e o primeiro capítulo)
+    let summary = "";
+    const firstChapterIndex = content.indexOf("## ");
+    if (firstChapterIndex > 0 && titleMatch) {
+      const titleEndIndex = content.indexOf("\n", content.indexOf(titleMatch[0])) + 1;
+      const introText = content.substring(titleEndIndex, firstChapterIndex).trim();
+      // Limitar o resumo a 1-2 frases
+      const sentences = introText.split(/[.!?]+/).filter(s => s.trim().length > 0);
+      summary = sentences.slice(0, Math.min(2, sentences.length)).join(". ") + ".";
+    } else {
+      summary = `Uma história sobre ${theme}`;
+    }
     
     // Extrair capítulos da história
-    const chapters = extractChapters(result.content);
+    const chapters = extractChapters(content);
+    
+    // Adicionar prompts de imagem aos capítulos
+    const imageRegex = /\[IMAGEM: (.*?)\]/g;
+    let match;
+    let index = 0;
+    
+    while ((match = imageRegex.exec(content)) !== null && index < chapters.length) {
+      if (chapters[index]) {
+        chapters[index].imagePrompt = match[1];
+      }
+      index++;
+    }
+    
     console.log(`Identificados ${chapters.length} capítulos na história`);
     
+    // Calcular tempo de leitura estimado (1 palavra = ~0.3 segundos em média)
+    const wordCount = content.split(/\s+/).length;
+    const readingTime = Math.ceil(wordCount / 200); // ~200 palavras por minuto
+    
     return {
-      title: result.title,
-      content: result.content,
-      summary: result.summary || `Uma história sobre ${theme}`,
-      readingTime: result.readingTime || Math.ceil(result.content.length / 1000),
-      chapters: chapters
+      title,
+      content,
+      summary,
+      readingTime,
+      chapters
     };
   } catch (error: any) {
     console.error("Erro ao gerar história:", error);
