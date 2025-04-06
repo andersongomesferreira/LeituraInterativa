@@ -32,6 +32,7 @@ export interface Chapter {
 export interface GeneratedImage {
   imageUrl: string;
   base64Image?: string;
+  isBackup?: boolean;
 }
 
 // Função para extrair capítulos de uma história
@@ -101,17 +102,26 @@ export interface GenerateImageOptions {
   ageGroup?: "3-5" | "6-8" | "9-12";
 }
 
+// Banco de ilustrações de backup para casos de falha
+const BACKUP_ILLUSTRATIONS = {
+  "default": "https://cdn.pixabay.com/photo/2016/04/15/20/28/cartoon-1332054_960_720.png",
+  "character": "https://cdn.pixabay.com/photo/2019/05/26/14/40/cartoon-4230855_960_720.png",
+  "forest": "https://cdn.pixabay.com/photo/2017/08/10/02/05/tiles-sprites-2617112_960_720.png",
+  "adventure": "https://cdn.pixabay.com/photo/2019/03/17/12/04/cartoon-4060188_960_720.png",
+  "animals": "https://cdn.pixabay.com/photo/2023/04/17/21/11/animals-7934300_960_720.png"
+};
+
 // Estilo de ilustração baseado na faixa etária
 function getIllustrationStyleByAge(ageGroup?: string): string {
   switch (ageGroup) {
     case "3-5":
-      return "estilo muito simples e colorido, formas arredondadas, personagens grandes e expressivos, poucos detalhes";
+      return "estilo muito simples e colorido, formas geométricas básicas, personagens muito grandes e expressivos com cabeças grandes, ABSOLUTAMENTE sem detalhes complexos, cores primárias vibrantes, contornos grossos e bem definidos";
     case "6-8":
-      return "estilo cartunizado colorido com personagens expressivos, cenários mais detalhados, cores vibrantes";
+      return "estilo cartunizado colorido com personagens expressivos com proporções exageradas tipo desenho animado, cenários mais detalhados mas simplificados, cores vibrantes, linhas claras e definidas, expressões faciais exageradas";
     case "9-12":
-      return "estilo cartunizado com mais detalhes, personagens com proporções mais realistas, cenários elaborados, cores ricas";
+      return "estilo cartunizado com mais detalhes, personagens com proporções cartunescas (cabeças maiores, feições expressivas), cenários mais elaborados mas ainda estilizados, paleta de cores ricas, linhas claras e contornos definidos";
     default:
-      return "estilo cartunizado colorido adequado para crianças";
+      return "estilo cartunizado colorido adequado para crianças, com linhas claras e definidas, cores vibrantes, personagens expressivos com proporções exageradas";
   }
 }
 
@@ -125,23 +135,53 @@ export async function generateImage(prompt: string, options: GenerateImageOption
   const mood = options.mood || "happy";
   const ageStyle = getIllustrationStyleByAge(options.ageGroup);
   
-  // Construir o prompt final
-  let enhancedPrompt = prompt;
+  // Construir o prompt final com instruções muito mais rigorosas para garantir estilo cartoon
+  let enhancedPrompt = "IMPORTANTE: Esta é uma ilustração para um LIVRO INFANTIL. ";
+  enhancedPrompt += "Crie uma ILUSTRAÇÃO ESTILO CARTOON com as seguintes características OBRIGATÓRIAS:\n\n";
   
-  // Adicionar instruções detalhadas para garantir que a imagem seja um desenho infantil
-  enhancedPrompt += `\nIlustrações de livro infantil em estilo ${style}, com clima ${mood}, ${ageStyle}.`;
-  enhancedPrompt += "\nTodos os elementos devem ser cartunizados e adequados para crianças, NÃO realistas.";
-  enhancedPrompt += "\nCores vibrantes e alegres, traços limpos, personagens expressivos com olhos grandes.";
+  // Adicionar o prompt original
+  enhancedPrompt += prompt + "\n\n";
   
-  // Adicionar regras negativas explícitas
-  enhancedPrompt += "\nEVITE: estilo de anime japonês, estilo fotorrealista, imagens assustadoras, texto dentro da imagem.";
+  // Adicionar instruções detalhadas e rigorosas
+  enhancedPrompt += `ESTILO OBRIGATÓRIO: Desenho animado infantil colorido, ${ageStyle}.\n`;
+  enhancedPrompt += `MOOD/CLIMA: ${mood}.\n`;
+  enhancedPrompt += "CARACTERÍSTICAS VISUAIS OBRIGATÓRIAS:\n";
+  enhancedPrompt += "- Cores: Vibrantes, saturadas e alegres\n";
+  enhancedPrompt += "- Linhas: Contornos grossos, pretos e bem definidos em todos os elementos\n";
+  enhancedPrompt += "- Personagens: Olhos grandes e expressivos, proporções exageradas (cabeças maiores que o corpo)\n";
+  enhancedPrompt += "- Visual geral: Simplificado, divertido, 100% apropriado para crianças\n";
+  enhancedPrompt += "- Estilo de render: Flat colors (cores chapadas) com sombras simples\n\n";
   
-  // Personalizar baseado na idade
+  // Adicionar regras negativas explícitas com mais ênfase
+  enhancedPrompt += "ABSOLUTAMENTE PROIBIDO (NUNCA INCLUA):\n";
+  enhancedPrompt += "- Qualquer traço de fotorrealismo ou realismo nos personagens ou cenários\n";
+  enhancedPrompt += "- Qualquer estilo de arte complexa, renderização 3D realista ou estilo de anime\n";
+  enhancedPrompt += "- Imagens assustadoras, sombrias ou inapropriadas para crianças\n";
+  enhancedPrompt += "- Texto ou letras dentro da imagem\n";
+  enhancedPrompt += "- Elementos visuais complexos ou texturas detalhadas\n\n";
+  
+  // Adicionar instruções específicas por idade
   if (options.ageGroup === "3-5") {
-    enhancedPrompt += "\nIlustração MUITO simples e acolhedora, personagens MUITO fofinhos, cores primárias, fundo simples.";
+    enhancedPrompt += "REGRAS ESPECIAIS PARA 3-5 ANOS:\n";
+    enhancedPrompt += "- EXTREMAMENTE simplificado (como livros para bebês)\n";
+    enhancedPrompt += "- Apenas cores primárias muito vibrantes\n";
+    enhancedPrompt += "- Personagens MUITO fofinhos com cabeças MUITO grandes\n";
+    enhancedPrompt += "- Cenários super simples com pouquíssimos elementos\n";
+    enhancedPrompt += "- Expressões faciais super claras e básicas\n";
+  } else if (options.ageGroup === "6-8") {
+    enhancedPrompt += "REGRAS ESPECIAIS PARA 6-8 ANOS:\n";
+    enhancedPrompt += "- Estilo como desenhos animados da Cartoon Network\n";
+    enhancedPrompt += "- Personagens expressivos e dinâmicos\n";
+    enhancedPrompt += "- Cenários coloridos mas não complexos\n";
   } else if (options.ageGroup === "9-12") {
-    enhancedPrompt += "\nIlustração um pouco mais detalhada, mas ainda cartunizada, cenas mais dinâmicas, cores mais variadas.";
+    enhancedPrompt += "REGRAS ESPECIAIS PARA 9-12 ANOS:\n";
+    enhancedPrompt += "- Mais detalhes, mas AINDA ASSIM estilo cartoon completo\n";
+    enhancedPrompt += "- Cenas mais dinâmicas e aventureiras\n";
+    enhancedPrompt += "- NUNCA usar estilo realista mesmo para esta idade\n";
   }
+  
+  // Referências específicas a estilos
+  enhancedPrompt += "\nREFERÊNCIAS DE ESTILO: Desenhos animados como Gravity Falls, Hora de Aventura, O Incrível Mundo de Gumball, Turma da Mônica Jovem.";
   
   try {
     console.log("Gerando imagem aprimorada...");
@@ -154,7 +194,7 @@ export async function generateImage(prompt: string, options: GenerateImageOption
       n: 1,
       size: "1024x1024",
       quality: "standard",
-      style: "vivid"
+      style: "vivid" // Manter vivid para cores mais brilhantes
     });
     
     console.log("Imagem gerada com sucesso");
@@ -164,14 +204,33 @@ export async function generateImage(prompt: string, options: GenerateImageOption
   } catch (error: any) {
     console.error("Erro ao gerar imagem:", error);
     
+    // Selecionar uma imagem de backup apropriada baseada no prompt
+    let backupImage = BACKUP_ILLUSTRATIONS.default;
+    
+    if (prompt.toLowerCase().includes("floresta") || prompt.toLowerCase().includes("selva")) {
+      backupImage = BACKUP_ILLUSTRATIONS.forest;
+    } else if (prompt.toLowerCase().includes("aventura")) {
+      backupImage = BACKUP_ILLUSTRATIONS.adventure;
+    } else if (prompt.toLowerCase().includes("animal") || prompt.toLowerCase().includes("leão") || 
+              prompt.toLowerCase().includes("tucano") || prompt.toLowerCase().includes("macaco")) {
+      backupImage = BACKUP_ILLUSTRATIONS.animals;
+    } else if (prompt.toLowerCase().includes("personagem") || prompt.toLowerCase().includes("character")) {
+      backupImage = BACKUP_ILLUSTRATIONS.character;
+    }
+    
+    // Log do erro com detalhes para depuração
     if (error.response?.status === 401) {
-      throw new Error("Falha na autenticação com API OpenAI. Verifique a chave da API.");
+      console.error("Falha na autenticação com API OpenAI. Retornando imagem de backup.");
+      return { imageUrl: backupImage, isBackup: true };
     } else if (error.response?.status === 429) {
-      throw new Error("Limite de requisições da API OpenAI excedido. Tente novamente mais tarde.");
+      console.error("Limite de requisições da API OpenAI excedido. Retornando imagem de backup.");
+      return { imageUrl: backupImage, isBackup: true };
     } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-      throw new Error("Erro de conexão com a API OpenAI. Verifique sua conexão à internet.");
+      console.error("Erro de conexão. Retornando imagem de backup.");
+      return { imageUrl: backupImage, isBackup: true };
     } else {
-      throw new Error("Não foi possível gerar a imagem. Por favor, tente novamente.");
+      console.error("Erro genérico. Retornando imagem de backup.");
+      return { imageUrl: backupImage, isBackup: true };
     }
   }
 }
@@ -179,24 +238,63 @@ export async function generateImage(prompt: string, options: GenerateImageOption
 // Função para gerar imagem de um personagem
 export async function generateCharacterImage(character: string, options: GenerateImageOptions = {}): Promise<GeneratedImage> {
   const characterStyle = options.characterStyle || "cute";
-  const backgroundColor = options.backgroundColor || "branco";
+  const backgroundColor = options.backgroundColor || "claro e sólido (sem gradientes)";
+  const ageGroup = options.ageGroup || "6-8";
   
-  let characterPrompt = `Desenho infantil colorido de ${character}`;
+  // Adaptar características baseadas no tipo de personagem
+  let characterType = "";
+  let characterTraits = "";
+  let characterColors = "";
   
-  // Adaptar o prompt baseado no tipo de personagem
-  if (character.includes("Leão")) {
-    characterPrompt += `, um leão ${characterStyle} e amigável`;
-  } else if (character.includes("Polvo")) {
-    characterPrompt += `, um polvo ${characterStyle} e inteligente`;
-  } else if (character.includes("Coelho")) {
-    characterPrompt += `, um coelho ${characterStyle} e ágil`;
+  if (character.toLowerCase().includes("leão")) {
+    characterType = "leão";
+    characterTraits = "juba colorida e volumosa, focinho arredondado, patas grandes";
+    characterColors = "tons de amarelo, laranja e marrom";
+  } else if (character.toLowerCase().includes("tucano")) {
+    characterType = "tucano";
+    characterTraits = "bico grande e colorido, asas coloridas, olhos expressivos";
+    characterColors = "preto com detalhes coloridos no bico e peito";
+  } else if (character.toLowerCase().includes("macaco")) {
+    characterType = "macaco";
+    characterTraits = "cauda longa e enrolada, orelhas redondas, expressão brincalhona";
+    characterColors = "marrom ou castanho com detalhes em bege";
+  } else if (character.toLowerCase().includes("jaguatirica") || character.toLowerCase().includes("onça")) {
+    characterType = "felino pintado";
+    characterTraits = "manchas no pelo, orelhas pontudas, cauda longa";
+    characterColors = "amarelo ou dourado com manchas pretas simplificadas";
+  } else if (character.toLowerCase().includes("cobra") || character.toLowerCase().includes("serpente")) {
+    characterType = "cobra";
+    characterTraits = "corpo ondulado, escamas estilizadas, olhos grandes e expressivos";
+    characterColors = "verde vibrante com detalhes coloridos";
   } else {
-    characterPrompt += `, personagem ${characterStyle} e expressivo`;
+    characterType = "animal da floresta";
+    characterTraits = "feições amigáveis, expressão simpática, postura ereta";
+    characterColors = "cores vibrantes que combinam com o personagem";
   }
   
-  characterPrompt += `. Corpo inteiro do personagem, fundo ${backgroundColor}, visual simpático e detalhado.`;
+  // Construir o prompt especializado para personagem de desenho animado
+  let characterPrompt = `
+    Quero uma ilustração de personagem para livro infantil do personagem "${character}", que é um ${characterType}.
+    
+    ESPECIFICAÇÕES VISUAIS OBRIGATÓRIAS:
+    - Estilo: Cartoon infantil com contornos grossos e pretos bem definidos (estilo "cel shading")
+    - Pose: Corpo inteiro, postura expressiva e dinâmica
+    - Visual: ${characterStyle}, ${characterTraits}, extremamente fofo e simpático
+    - Cores: ${characterColors}, cores vibrantes e saturadas
+    - Fundo: ${backgroundColor}, minimalista para destacar o personagem
+    - Proporções: Cabeça grande (estilo cartoon), olhos muito expressivos e grandes
+    
+    O personagem deve ser desenhado no estilo de desenho animado para crianças da faixa etária ${ageGroup} anos.
+    Deve ser EXTREMAMENTE cartunizado - nada de realismo ou fotorrealismo ou arte complexa.
+    Use um estilo de desenho BIDIMENSIONAL com cores planas, sem sombreamento complexo.
+    Certifique-se que o personagem tenha um rosto MUITO expressivo e amigável.
+  `;
   
-  return generateImage(characterPrompt, options);
+  return generateImage(characterPrompt, {
+    ...options,
+    style: "cartoon",
+    mood: "happy"
+  });
 }
 
 // Função para gerar imagem de um capítulo da história
@@ -211,21 +309,42 @@ export async function generateChapterImage(
     ? chapterContent.substring(0, 300) 
     : chapterContent;
   
+  // Definir estilo baseado na idade
+  const ageGroup = options.ageGroup || "6-8";
+  let visualStyle = "";
+  
+  switch (ageGroup) {
+    case "3-5":
+      visualStyle = "EXTREMAMENTE simples e colorido, com pouquíssimos elementos e fundo muito básico";
+      break;
+    case "6-8":
+      visualStyle = "colorido e cartunizado, tipo desenho animado da Cartoon Network";
+      break;
+    case "9-12":
+      visualStyle = "cartunizado com mais detalhes, mas ainda puramente cartoon, estilo Adventure Time";
+      break;
+    default:
+      visualStyle = "cartunizado e colorido, perfeito para livros infantis";
+  }
+  
   // Criar um prompt para análise do capítulo
   const analysisPrompt = `
     Título do capítulo: "${chapterTitle}"
     Conteúdo: "${contentSummary}"
     
-    Baseado no título e conteúdo acima, qual seria a cena principal para ilustrar?
+    Baseado no título e conteúdo acima, qual seria a MELHOR cena para ilustrar em um livro infantil em estilo CARTOON?
+    Escolha o momento mais visualmente interessante e memorável do capítulo para crianças de ${ageGroup} anos.
     Personagens envolvidos: ${characters.join(", ")}
     
-    Responda no formato JSON:
+    Responda no formato JSON com os seguintes campos OBRIGATÓRIOS:
     {
-      "scene": "descrição detalhada da cena principal",
-      "characters": "quais personagens aparecem na cena",
-      "setting": "local onde a cena acontece",
-      "action": "o que está acontecendo na cena",
-      "mood": "clima/emoção da cena"
+      "scene": "descrição clara e detalhada da cena principal para ilustrar",
+      "characters": "quais personagens aparecem na cena e como estão posicionados",
+      "setting": "local exato onde a cena acontece com 2-3 elementos visuais importantes",
+      "action": "o que está acontecendo na cena - qual ação específica mostrar",
+      "mood": "clima/emoção da cena (alegre, tenso, misterioso, etc)",
+      "colors": "paleta de cores sugerida para esta ilustração",
+      "focus": "em qual elemento a ilustração deve focar principalmente"
     }
   `;
   
@@ -247,26 +366,66 @@ export async function generateChapterImage(
         characters: characters.join(", "),
         setting: "cena da história",
         action: "momento importante",
-        mood: "interessante"
+        mood: "interessante",
+        colors: "vibrantes e coloridas",
+        focus: "nos personagens principais"
       };
     }
     
-    // Criar um prompt detalhado baseado na análise
+    // Criar um prompt MUITO mais detalhado baseado na análise para garantir estilo cartoon
     const detailedPrompt = `
-      Ilustração de livro infantil para o capítulo "${chapterTitle}":
-      Cena: ${sceneAnalysis.scene}
-      Personagens: ${sceneAnalysis.characters}
-      Cenário: ${sceneAnalysis.setting}
-      Ação: ${sceneAnalysis.action}
-      Clima: ${sceneAnalysis.mood}
+      ILUSTRAÇÃO DE LIVRO INFANTIL para o capítulo "${chapterTitle}", em estilo 100% CARTOON, ${visualStyle}.
+      
+      CENA PRINCIPAL: ${sceneAnalysis.scene}
+      
+      ELEMENTOS ESSENCIAIS:
+      • Personagens: ${sceneAnalysis.characters}
+      • Cenário: ${sceneAnalysis.setting}
+      • Ação: ${sceneAnalysis.action}
+      • Clima emocional: ${sceneAnalysis.mood}
+      • Foco principal: ${sceneAnalysis.focus}
+      • Cores: ${sceneAnalysis.colors}
+      
+      ESTILO VISUAL OBRIGATÓRIO:
+      • Traços: Contornos pretos e GROSSOS em TODOS os elementos
+      • Cores: Saturadas, vibrantes e chapadas (flat colors)
+      • Personagens: Proporções exageradas com cabeças grandes e olhos expressivos
+      • Composição: Simples, clara e centralizada na ação principal
+      • Perspectiva: Simplificada, estilo 2D, sem perspectiva complexa
+      • Sombras: Mínimas e simplificadas
+      
+      ABSOLUTAMENTE PROIBIDO:
+      • Realismo de qualquer tipo
+      • Renderização 3D
+      • Estilo anime ou mangá
+      • Texturas complexas
+      • Elementos assustadores
+      • Texto dentro da imagem
     `;
     
-    return generateImage(detailedPrompt, options);
+    return generateImage(detailedPrompt, {
+      ...options,
+      style: "cartoon",
+      mood: options.mood || sceneAnalysis.mood.toLowerCase().includes("feliz") ? "happy" : 
+                          sceneAnalysis.mood.toLowerCase().includes("aventura") ? "adventure" : "calm"
+    });
   } catch (error) {
     console.error("Erro na análise do capítulo:", error);
     // Fallback para um prompt mais simples em caso de erro
-    const simplePrompt = `Desenho infantil colorido ilustrando o capítulo "${chapterTitle}" com ${characters.join(", ")} - cena principal da história`;
-    return generateImage(simplePrompt, options);
+    const simplePrompt = `
+      ILUSTRAÇÃO DE LIVRO INFANTIL 100% CARTOON para o capítulo "${chapterTitle}".
+      
+      Desenho infantil colorido mostrando ${characters.join(", ")} em uma cena importante do capítulo.
+      
+      OBRIGATÓRIO: Estilo cartoon com contornos grossos e pretos, cores vibrantes, personagens com olhos grandes
+      e expressivos, sem QUALQUER realismo, completamente cartunizado no estilo de desenhos animados para crianças
+      da faixa etária ${ageGroup} anos.
+    `;
+    return generateImage(simplePrompt, {
+      ...options,
+      style: "cartoon", 
+      mood: "happy"
+    });
   }
 }
 
