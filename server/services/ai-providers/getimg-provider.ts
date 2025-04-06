@@ -141,8 +141,22 @@ export class GetImgProvider implements AIProvider {
     try {
       // Prepare optimized prompt for cartoon-style illustrations
       let enhancedPrompt = params.prompt;
+      
+      // Get age group for style adaptation
+      const ageGroup = params.ageGroup || "6-8";
+      let stylePrefix = "";
+      
       if (params.style === 'cartoon') {
-        enhancedPrompt = `${params.prompt}, cartoonish, vibrant colors, children's book illustration style, cute, appealing, clear outlines`;
+        stylePrefix = "ILLUSTRATION FOR CHILDREN'S BOOK: ";
+        
+        // Style based on age group
+        if (ageGroup === "3-5") {
+          enhancedPrompt = `${stylePrefix}${params.prompt}, simple cartoon, very colorful, basic geometric shapes, thick outlines, preschool style illustration, appealing characters with big expressive faces, minimal background`;
+        } else if (ageGroup === "6-8") {
+          enhancedPrompt = `${stylePrefix}${params.prompt}, cartoon style, vibrant colors, children's book illustration with colorful characters, clear outlines, expressive faces, cheerful, Turma da Mônica style, storybook aesthetic`;
+        } else { // 9-12
+          enhancedPrompt = `${stylePrefix}${params.prompt}, cartoon style, colorful detailed illustration for children, defined contours, expressive characters, adventure comic book style, clear character design, vibrant colors`;
+        }
       }
       
       // Combine with character descriptions for consistency
@@ -150,7 +164,11 @@ export class GetImgProvider implements AIProvider {
         const characterPrompts = params.characterDescriptions.map(char => {
           if (char.visualAttributes) {
             const colors = char.visualAttributes.colors.join(', ');
-            return `${char.name}: ${char.appearance || ''}, wearing ${char.visualAttributes.clothing || 'colorful clothes'}, ${colors} colors`;
+            const features = char.visualAttributes.distinguishingFeatures 
+              ? char.visualAttributes.distinguishingFeatures.join(', ') 
+              : '';
+            
+            return `${char.name}: ${char.appearance || ''}, wearing ${char.visualAttributes.clothing || 'colorful clothes'}, ${colors} colors, ${features}`;
           }
           return `${char.name}: ${char.appearance || ''}`;
         }).join('; ');
@@ -158,8 +176,23 @@ export class GetImgProvider implements AIProvider {
         enhancedPrompt = `${enhancedPrompt}. Character details: ${characterPrompts}`;
       }
       
+      // Add mood/tone for emotional context
+      if (params.mood) {
+        const moodMap: {[key: string]: string} = {
+          'happy': 'cheerful and joyful scene',
+          'adventure': 'exciting and adventurous moment',
+          'calm': 'peaceful and serene atmosphere',
+          'exciting': 'dynamic and action-filled composition'
+        };
+        
+        enhancedPrompt += `, ${moodMap[params.mood] || moodMap['happy']}`;
+      }
+      
+      // Add specific art direction for cartoon style
+      enhancedPrompt += ", hand-drawn style, flat colors, clean and defined black outlines, solid shadows, no gradients, no textures, simplified cartoon shapes";
+      
       // Negative prompt to avoid common issues in children's illustrations
-      const negativePrompt = "blurry, distorted, deformed, disfigured, bad anatomy, ugly, inappropriate content, scary, frightening, text, watermark, signature, adult content";
+      const negativePrompt = "photorealistic, 3d render, realistic, photograph, photo, realistic faces, human faces, realistic eyes, realistic skin, hyper-realistic, realism, realistic lighting, complex background, blurry, distorted, deformed, disfigured, bad anatomy, ugly, inappropriate content, scary, frightening, text, watermark, signature, adult content, anime style";
       
       // Truncate the prompt to avoid "string too long" error
       const MAX_PROMPT_LENGTH = 800; // Even more conservative than 1000 to be safe

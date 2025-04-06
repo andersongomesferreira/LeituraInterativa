@@ -236,7 +236,7 @@ export class OpenAIProvider implements AIProvider {
   
   private enhancePromptForAgeGroup(prompt: string, ageGroup: string, style?: string): string {
     let enhancedPrompt = "IMPORTANTE: Esta é uma ilustração para um LIVRO INFANTIL. ";
-    enhancedPrompt += "Crie uma ILUSTRAÇÃO ESTILO CARTOON com as seguintes características OBRIGATÓRIAS:\n\n";
+    enhancedPrompt += "Crie uma ILUSTRAÇÃO ESTILO CARTOON para a seguinte cena, incluindo APENAS os elementos mencionados na descrição:\n\n";
     
     // Adicionar o prompt original
     enhancedPrompt += prompt + "\n\n";
@@ -245,38 +245,42 @@ export class OpenAIProvider implements AIProvider {
     let ageStyle = "";
     switch (ageGroup) {
       case "3-5":
-        ageStyle = "estilo muito simples e colorido, formas geométricas básicas, personagens muito grandes e expressivos com cabeças grandes, ABSOLUTAMENTE sem detalhes complexos, cores primárias vibrantes, contornos grossos e bem definidos";
+        ageStyle = "estilo muito simples e colorido, formas geométricas básicas, personagens muito grandes e expressivos com cabeças grandes, ABSOLUTAMENTE sem detalhes complexos, cores primárias vibrantes, contornos grossos e bem definidos, fundo simples e minimalista";
         break;
       case "6-8":
-        ageStyle = "estilo cartunizado colorido com personagens expressivos com proporções exageradas tipo desenho animado, cenários mais detalhados mas simplificados, cores vibrantes, linhas claras e definidas, expressões faciais exageradas";
+        ageStyle = "estilo cartunizado colorido com personagens expressivos com proporções exageradas tipo desenho animado (como na Turma da Mônica), cenários mais detalhados mas simplificados, cores vibrantes, linhas claras e definidas, expressões faciais exageradas";
         break;
       case "9-12":
-        ageStyle = "estilo cartunizado com mais detalhes, personagens com proporções cartunescas (cabeças maiores, feições expressivas), cenários mais elaborados mas ainda estilizados, paleta de cores ricas, linhas claras e contornos definidos";
+        ageStyle = "estilo cartunizado com mais detalhes, personagens com proporções cartunescas (cabeças maiores, feições expressivas), cenários mais elaborados mas ainda estilizados, paleta de cores ricas, linhas claras e contornos definidos, sem ser complexo demais";
         break;
       default:
         ageStyle = "estilo cartunizado colorido adequado para crianças, com linhas claras e definidas, cores vibrantes, personagens expressivos com proporções exageradas";
     }
     
     // Adicionar instruções detalhadas e rigorosas
-    enhancedPrompt += `ESTILO OBRIGATÓRIO: Desenho animado infantil colorido, ${ageStyle}.\n`;
-    enhancedPrompt += `MOOD/CLIMA: ${style === "exciting" ? "aventura e emoção" : "alegre e amigável"}.\n`;
+    enhancedPrompt += `ESTILO VISUAL OBRIGATÓRIO: ${ageStyle}.\n`;
+    enhancedPrompt += `MOOD/CLIMA: ${style === "exciting" ? "aventura e emoção" : style === "calm" ? "tranquilo e aconchegante" : style === "happy" ? "alegre e animado" : "alegre e amigável"}.\n`;
     enhancedPrompt += "CARACTERÍSTICAS VISUAIS OBRIGATÓRIAS:\n";
-    enhancedPrompt += "- Cores: Vibrantes, saturadas e alegres\n";
+    enhancedPrompt += "- Ilustre APENAS os personagens e elementos mencionados na descrição acima\n";
+    enhancedPrompt += "- Cores: Vibrantes, saturadas e alegres, sem tons escuros ou assustadores\n";
     enhancedPrompt += "- Linhas: Contornos grossos, pretos e bem definidos em todos os elementos\n";
-    enhancedPrompt += "- Personagens: Olhos grandes e expressivos, proporções exageradas (cabeças maiores que o corpo)\n";
+    enhancedPrompt += "- Personagens: Olhos grandes e expressivos, proporções cartunescas (cabeças maiores que o corpo)\n";
     enhancedPrompt += "- Visual geral: Simplificado, divertido, 100% apropriado para crianças\n";
-    enhancedPrompt += "- Estilo de render: Flat colors (cores chapadas) com sombras simples\n\n";
+    enhancedPrompt += "- Estilo de render: Flat colors (cores chapadas) com sombras simples\n";
+    enhancedPrompt += "- Composição: Cenário claro e minimalista que não distraia da ação principal\n\n";
     
     // Adicionar regras negativas explícitas com mais ênfase
     enhancedPrompt += "ABSOLUTAMENTE PROIBIDO (NUNCA INCLUA):\n";
-    enhancedPrompt += "- Qualquer traço de fotorrealismo ou realismo nos personagens ou cenários\n";
-    enhancedPrompt += "- Qualquer estilo de arte complexa, renderização 3D realista ou estilo de anime\n";
-    enhancedPrompt += "- Imagens assustadoras, sombrias ou inapropriadas para crianças\n";
-    enhancedPrompt += "- Texto ou letras dentro da imagem\n";
-    enhancedPrompt += "- Elementos visuais complexos ou texturas detalhadas\n\n";
+    enhancedPrompt += "- NÃO inclua elementos não mencionados na descrição da cena acima\n";
+    enhancedPrompt += "- NÃO use fotorrealismo ou realismo nos personagens ou cenários\n";
+    enhancedPrompt += "- NÃO use estilo de arte complexa, renderização 3D realista ou estilo de anime\n";
+    enhancedPrompt += "- NÃO inclua imagens assustadoras, sombrias ou inapropriadas para crianças\n";
+    enhancedPrompt += "- NÃO inclua texto ou letras dentro da imagem\n";
+    enhancedPrompt += "- NÃO use elementos visuais complexos, texturas detalhadas ou sombras intensas\n";
+    enhancedPrompt += "- NÃO desenhe pessoas ou animais reais, somente personagens de desenho animado\n\n";
     
     // Referências específicas a estilos
-    enhancedPrompt += "\nREFERÊNCIAS DE ESTILO: Desenhos animados como Gravity Falls, Hora de Aventura, O Incrível Mundo de Gumball, Turma da Mônica Jovem.";
+    enhancedPrompt += "REFERÊNCIAS DE ESTILO: Desenhos animados como Turma da Mônica, Gravity Falls, Hora de Aventura, O Incrível Mundo de Gumball.";
     
     return enhancedPrompt;
   }

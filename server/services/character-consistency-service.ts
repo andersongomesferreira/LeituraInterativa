@@ -93,12 +93,14 @@ class CharacterConsistencyService {
     name: string;
     imageUrl?: string;
     description?: string;
+    chapterId?: number;
   }[]): void {
     if (!this.characterCache.has(storyId)) {
       this.characterCache.set(storyId, new Map());
     }
     
     const storyCache = this.characterCache.get(storyId)!;
+    console.log(`Atualizando descrições visuais para ${characterUpdates.length} personagens na história ${storyId}`);
     
     for (const update of characterUpdates) {
       if (!update.name) continue;
@@ -120,11 +122,13 @@ class CharacterConsistencyService {
             clothing: '',
             distinguishingFeatures: []
           },
-          previousImages: currentDesc.previousImages ? [...currentDesc.previousImages] : []
+          previousImages: currentDesc.previousImages ? [...currentDesc.previousImages] : [],
+          chapterAppearances: currentDesc.chapterAppearances ? [...currentDesc.chapterAppearances] : []
         };
         
         // Atualizar com a nova URL de imagem, se fornecida
         if (update.imageUrl) {
+          // Adicionar à lista de imagens anteriores
           if (!updatedDesc.previousImages) {
             updatedDesc.previousImages = [];
           }
@@ -134,6 +138,33 @@ class CharacterConsistencyService {
           // Manter apenas as últimas 3 imagens para não sobrecarregar
           if (updatedDesc.previousImages.length > 3) {
             updatedDesc.previousImages = updatedDesc.previousImages.slice(-3);
+          }
+          
+          // Adicionar à lista de aparições em capítulos
+          if (!updatedDesc.chapterAppearances) {
+            updatedDesc.chapterAppearances = [];
+          }
+          
+          // Se já existir uma entrada para este capítulo, atualizá-la
+          const chapterId = update.chapterId || updatedDesc.chapterAppearances.length + 1;
+          const existingAppearanceIndex = updatedDesc.chapterAppearances.findIndex(
+            app => app.chapterId === chapterId
+          );
+          
+          if (existingAppearanceIndex >= 0) {
+            // Atualizar a entrada existente
+            updatedDesc.chapterAppearances[existingAppearanceIndex] = {
+              ...updatedDesc.chapterAppearances[existingAppearanceIndex],
+              imageUrl: update.imageUrl,
+              description: update.description || updatedDesc.chapterAppearances[existingAppearanceIndex].description
+            };
+          } else {
+            // Adicionar nova entrada
+            updatedDesc.chapterAppearances.push({
+              chapterId,
+              imageUrl: update.imageUrl,
+              description: update.description
+            });
           }
         }
         
@@ -154,18 +185,18 @@ class CharacterConsistencyService {
           // Mesclar cores (remover duplicatas)
           const combinedColors = [
             ...updatedDesc.visualAttributes.colors,
-            ...extractedAttributes.colors
+            ...(extractedAttributes?.colors || [])
           ].filter((color, index, self) => self.indexOf(color) === index);
           
           updatedDesc.visualAttributes.colors = combinedColors;
           
           // Atualizar roupa se a nova descrição tiver essa informação
-          if (extractedAttributes.clothing && extractedAttributes.clothing.length > 0) {
+          if (extractedAttributes?.clothing && extractedAttributes.clothing.length > 0) {
             updatedDesc.visualAttributes.clothing = extractedAttributes.clothing;
           }
           
           // Mesclar características distintivas
-          if (extractedAttributes.distinguishingFeatures && extractedAttributes.distinguishingFeatures.length > 0) {
+          if (extractedAttributes?.distinguishingFeatures && extractedAttributes.distinguishingFeatures.length > 0) {
             const combinedFeatures = [
               ...(updatedDesc.visualAttributes.distinguishingFeatures || []),
               ...extractedAttributes.distinguishingFeatures
@@ -189,54 +220,101 @@ class CharacterConsistencyService {
     const clothing: string[] = [];
     const features: string[] = [];
     
-    // Lista de cores comuns para procurar
+    // Lista expandida de cores comuns para procurar (incluindo variações e compostos)
     const colorList = [
       'vermelho', 'azul', 'verde', 'amarelo', 'laranja', 
       'roxo', 'rosa', 'marrom', 'preto', 'branco', 
-      'cinza', 'dourado', 'prateado', 'colorido'
+      'cinza', 'dourado', 'prateado', 'colorido',
+      'azul-claro', 'verde-claro', 'vermelho-escuro', 'azul-escuro',
+      'turquesa', 'violeta', 'magenta', 'ciano', 'lima', 
+      'bege', 'creme', 'castanho', 'lilás', 'índigo',
+      'esmeralda', 'púrpura', 'carmesim', 'escarlate', 'âmbar'
     ];
     
-    // Lista de peças de roupa comuns
+    // Lista expandida de peças de roupa
     const clothingList = [
       'chapéu', 'boné', 'camiseta', 'camisa', 'calça',
       'shorts', 'vestido', 'saia', 'jaqueta', 'casaco',
-      'macacão', 'uniforme', 'gravata', 'lenço', 'cachecol'
+      'macacão', 'uniforme', 'gravata', 'lenço', 'cachecol',
+      'luvas', 'meias', 'botas', 'sapatos', 'sandálias',
+      'pijama', 'capa', 'manto', 'colete', 'túnica',
+      'bermuda', 'blusa', 'moletom', 'suéter', 'gorro'
     ];
     
-    // Lista de características distintivas
+    // Lista expandida de características distintivas
     const featuresList = [
       'óculos', 'barba', 'bigode', 'cicatriz', 'tatuagem',
       'asas', 'cauda', 'chifres', 'penas', 'escamas',
-      'mochila', 'bengala', 'bolsa', 'coroa', 'espada'
+      'mochila', 'bengala', 'bolsa', 'coroa', 'espada',
+      'cabelo longo', 'cabelo curto', 'cabelo cacheado', 'cabelo liso',
+      'orelhas pontudas', 'rabo de cavalo', 'tranças', 'coque',
+      'sardas', 'pintinhas', 'manchas', 'listras', 'bolinhas',
+      'brinco', 'colar', 'pulseira', 'anel', 'relógio'
     ];
     
     // Normalizar descrição
     const normalizedDesc = description.toLowerCase();
     
-    // Procurar por cores
+    // Procurar por cores (busca mais inteligente)
     for (const color of colorList) {
-      if (normalizedDesc.includes(color)) {
+      // Verificar se a palavra completa existe na descrição
+      const colorRegex = new RegExp(`\\b${color}\\b`, 'i');
+      if (colorRegex.test(normalizedDesc)) {
         colors.push(color);
       }
     }
     
     // Procurar por peças de roupa
     for (const item of clothingList) {
-      if (normalizedDesc.includes(item)) {
+      // Verificar item individual e possíveis plurais
+      const clothingRegex = new RegExp(`\\b${item}(s)?\\b`, 'i');
+      if (clothingRegex.test(normalizedDesc)) {
         clothing.push(item);
       }
     }
     
     // Procurar por características distintivas
     for (const feature of featuresList) {
+      // Busca mais flexível para características
       if (normalizedDesc.includes(feature)) {
         features.push(feature);
       }
     }
     
+    // Extrair descrições de cabelo específicas (cor, comprimento, estilo)
+    const hairColors = ['vermelho', 'azul', 'verde', 'amarelo', 'laranja', 'roxo', 'rosa', 
+                       'marrom', 'preto', 'branco', 'loiro', 'castanho', 'ruivo'];
+    
+    // Método seguro para detectar cabelo de cor específica
+    for (const color of hairColors) {
+      if (normalizedDesc.includes(`cabelo ${color}`)) {
+        features.push(`cabelo ${color}`);
+      }
+    }
+    
+    // Extrair características de animais/criaturas
+    if (
+      normalizedDesc.includes('leão') || 
+      normalizedDesc.includes('tigre') ||
+      normalizedDesc.includes('urso') ||
+      normalizedDesc.includes('lobo') ||
+      normalizedDesc.includes('raposa') ||
+      normalizedDesc.includes('dragão') ||
+      normalizedDesc.includes('elfo') ||
+      normalizedDesc.includes('fada')
+    ) {
+      // Identificar qual a criatura
+      const creatureTypes = ['leão', 'tigre', 'urso', 'lobo', 'raposa', 'dragão', 'elfo', 'fada'];
+      for (const type of creatureTypes) {
+        if (normalizedDesc.includes(type)) {
+          features.push(`personagem tipo ${type}`);
+        }
+      }
+    }
+    
     return {
       colors: colors.length > 0 ? colors : ['azul', 'vermelho'], // cores padrão se não encontrar nenhuma
-      clothing: clothing.join(', '),
+      clothing: clothing.length > 0 ? clothing.join(', ') : '',
       distinguishingFeatures: features
     };
   }

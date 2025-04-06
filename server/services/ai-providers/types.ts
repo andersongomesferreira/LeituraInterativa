@@ -108,6 +108,12 @@ export interface CharacterDescription {
     distinguishingFeatures?: string[];
   };
   previousImages?: string[]; // URLs de imagens anteriores do personagem
+  chapterAppearances?: Array<{ // Informações sobre aparições em capítulos específicos
+    chapterId: number;
+    imageUrl?: string;
+    description?: string;
+    visualFeatures?: string[]; 
+  }>;
 }
 
 // Resultado da geração de imagem
