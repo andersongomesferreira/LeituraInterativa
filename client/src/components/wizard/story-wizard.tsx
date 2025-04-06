@@ -72,6 +72,13 @@ const StoryWizard = () => {
           description: "História criada, mas não foi possível navegar automaticamente para a leitura.",
           variant: "destructive",
         });
+        
+        // Adicionar um pequeno atraso antes de tentar navegar novamente
+        setTimeout(() => {
+          if (story && story.id) {
+            navigate(`/story/read/${story.id}`);
+          }
+        }, 1000);
       }
     },
     onError: (error) => {
