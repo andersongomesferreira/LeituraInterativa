@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateStory, generateAudioFromText } from "./services/openai";
+import { generateStory, generateAudioFromText, generateImage, generateCharacterImage, extractChapters } from "./services/openai";
 import { insertUserSchema, insertChildProfileSchema, insertStorySchema, insertReadingSessionSchema } from "@shared/schema";
 import { z } from "zod";
 import session from "express-session";
@@ -336,7 +336,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         ...story,
         summary: generatedStory.summary,
-        readingTime: generatedStory.readingTime
+        readingTime: generatedStory.readingTime,
+        chapters: generatedStory.chapters
       });
     } catch (error) {
       console.error("Error generating story:", error);
@@ -359,8 +360,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "História não encontrada" });
       }
       
-      res.json(story);
+      // Extrair capítulos do conteúdo da história
+      const chapters = extractChapters(story.content);
+      
+      res.json({
+        ...story,
+        chapters
+      });
     } catch (error) {
+      console.error("Erro ao buscar história:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
@@ -379,6 +387,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating audio:", error);
       res.status(500).json({ message: "Erro ao gerar áudio" });
+    }
+  });
+  
+  // Gerar imagem para um capítulo da história
+  app.post("/api/stories/generateImage", isAuthenticated, async (req, res) => {
+    try {
+      const { prompt } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ message: "Prompt não fornecido" });
+      }
+      
+      const generatedImage = await generateImage(prompt);
+      res.json(generatedImage);
+    } catch (error) {
+      console.error("Error generating image:", error);
+      res.status(500).json({ message: "Erro ao gerar imagem" });
+    }
+  });
+  
+  // Gerar imagem para um personagem
+  app.post("/api/characters/generateImage", isAuthenticated, async (req, res) => {
+    try {
+      const { character } = req.body;
+      
+      if (!character) {
+        return res.status(400).json({ message: "Nome do personagem não fornecido" });
+      }
+      
+      const generatedImage = await generateCharacterImage(character);
+      res.json(generatedImage);
+    } catch (error) {
+      console.error("Error generating character image:", error);
+      res.status(500).json({ message: "Erro ao gerar imagem do personagem" });
     }
   });
 

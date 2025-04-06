@@ -19,6 +19,120 @@ export interface GeneratedStory {
   content: string;
   summary: string;
   readingTime: number;
+  chapters: Chapter[];
+}
+
+export interface Chapter {
+  title: string;
+  content: string;
+  imagePrompt?: string;
+  imageUrl?: string;
+}
+
+export interface GeneratedImage {
+  imageUrl: string;
+  base64Image?: string;
+}
+
+// Função para extrair capítulos de uma história
+export function extractChapters(content: string): Chapter[] {
+  // Primeiro tentamos encontrar capítulos formatados com markdown (## Título)
+  const chapterRegex = /##\s+([^\n]+)(?:\n+)((?:(?!##\s+).|\n)+)/g;
+  const chapters: Chapter[] = [];
+  let match;
+  
+  while ((match = chapterRegex.exec(content)) !== null) {
+    const title = match[1].trim();
+    const chapterContent = match[2].trim();
+    
+    chapters.push({
+      title,
+      content: chapterContent,
+      imagePrompt: `Desenho infantil colorido e cartunizado ilustrando "${title}" - um desenho simples e divertido para crianças, estilo ilustração de livro infantil` 
+    });
+  }
+  
+  // Se não encontrou capítulos formatados, tentamos dividir por parágrafos em 3-4 seções
+  if (chapters.length === 0) {
+    const paragraphs = content.split(/\n\s*\n/);
+    
+    // Se houver pelo menos 3 parágrafos, criamos "capítulos" artificiais
+    if (paragraphs.length >= 3) {
+      const chapterSize = Math.ceil(paragraphs.length / 3); // Dividir em 3 capítulos aproximadamente iguais
+      
+      for (let i = 0; i < paragraphs.length; i += chapterSize) {
+        const chapterParagraphs = paragraphs.slice(i, i + chapterSize);
+        const chapterContent = chapterParagraphs.join('\n\n');
+        const chapterNumber = Math.floor(i / chapterSize) + 1;
+        
+        let title = '';
+        switch (chapterNumber) {
+          case 1: title = "O Início da Aventura"; break;
+          case 2: title = "O Desafio"; break;
+          case 3: title = "A Solução"; break;
+          default: title = `Parte ${chapterNumber}`;
+        }
+        
+        chapters.push({
+          title,
+          content: chapterContent,
+          imagePrompt: `Desenho infantil colorido e cartunizado ilustrando "${title}" - um desenho simples e divertido para crianças, estilo ilustração de livro infantil`
+        });
+      }
+    } else {
+      // Se houver poucos parágrafos, criamos um único capítulo
+      chapters.push({
+        title: "A História",
+        content,
+        imagePrompt: "Desenho infantil colorido e cartunizado ilustrando a história - um desenho simples e divertido para crianças, estilo ilustração de livro infantil"
+      });
+    }
+  }
+  
+  return chapters;
+}
+
+// Função para gerar imagem usando DALL-E
+export async function generateImage(prompt: string): Promise<GeneratedImage> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Chave da API OpenAI não configurada. Não é possível gerar imagens.");
+  }
+  
+  try {
+    console.log("Gerando imagem...");
+    console.log("Prompt:", prompt);
+    
+    const response = await openai.images.generate({
+      model: "dall-e-3",
+      prompt: prompt + " (desenho infantil, ilustração de livro para crianças, colorido, cartunizado, NÃO realista)",
+      n: 1,
+      size: "1024x1024",
+      quality: "standard",
+    });
+    
+    console.log("Imagem gerada com sucesso");
+    const imageUrl = response.data[0].url || "";
+    
+    return { imageUrl };
+  } catch (error: any) {
+    console.error("Erro ao gerar imagem:", error);
+    
+    if (error.response?.status === 401) {
+      throw new Error("Falha na autenticação com API OpenAI. Verifique a chave da API.");
+    } else if (error.response?.status === 429) {
+      throw new Error("Limite de requisições da API OpenAI excedido. Tente novamente mais tarde.");
+    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      throw new Error("Erro de conexão com a API OpenAI. Verifique sua conexão à internet.");
+    } else {
+      throw new Error("Não foi possível gerar a imagem. Por favor, tente novamente.");
+    }
+  }
+}
+
+// Função para gerar imagem de um personagem
+export async function generateCharacterImage(character: string): Promise<GeneratedImage> {
+  const prompt = `Desenho infantil colorido de ${character} - estilo cartunizado, divertido e amigável para crianças. Personagem em fundo branco, visual simpático e expressivo.`;
+  return generateImage(prompt);
 }
 
 export async function generateStory(params: StoryParams): Promise<GeneratedStory> {
@@ -64,9 +178,11 @@ export async function generateStory(params: StoryParams): Promise<GeneratedStory
     Não use palavras em inglês ou outras línguas. Apenas português brasileiro.
     Não use conteúdo assustador, violento ou inadequado para crianças.
     
+    IMPORTANTE: Divida a história em 3-5 capítulos curtos. Cada capítulo deve ter um título próprio e começar com a formatação "## Nome do Capítulo" (usando a marcação markdown).
+    
     Formate a saída como um objeto JSON com os seguintes campos:
     - title: Título atraente para a história
-    - content: O texto completo da história
+    - content: O texto completo da história, incluindo os títulos dos capítulos com o formato markdown (## Nome do Capítulo)
     - summary: Um resumo curto da história (1-2 frases)
     - readingTime: Tempo estimado de leitura em minutos (número)
   `;
@@ -104,11 +220,16 @@ export async function generateStory(params: StoryParams): Promise<GeneratedStory
     
     console.log(`História gerada com sucesso: "${result.title}"`);
     
+    // Extrair capítulos da história
+    const chapters = extractChapters(result.content);
+    console.log(`Identificados ${chapters.length} capítulos na história`);
+    
     return {
       title: result.title,
       content: result.content,
       summary: result.summary || `Uma história sobre ${theme}`,
-      readingTime: result.readingTime || Math.ceil(result.content.length / 1000)
+      readingTime: result.readingTime || Math.ceil(result.content.length / 1000),
+      chapters: chapters
     };
   } catch (error: any) {
     console.error("Erro ao gerar história:", error);
