@@ -1,0 +1,25 @@
+Warning: validateDOMNesting(...): %s cannot appear as a descendant of <%s>.%s <a> a 
+    at a
+    at a
+    at https://8de64280-8a6c-40d5-9ddc-075305530336-00-2p6qa1s4t5fdi.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=1920ecdf:337:18
+    at https://8de64280-8a6c-40d5-9ddc-075305530336-00-2p6qa1s4t5fdi.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-4WIT4MX7.js?v=1920ecdf:52:11
+    at https://8de64280-8a6c-40d5-9ddc-075305530336-00-2p6qa1s4t5fdi.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-4WIT4MX7.js?v=1920ecdf:33:11
+    at _c (https://8de64280-8a6c-40d5-9ddc-075305530336-00-2p6qa1s4t5fdi.riker.replit.dev/src/components/ui/button.tsx:47:11)
+    at div
+    at div
+    at div
+    at div
+    at section
+    at Hero (https://8de64280-8a6c-40d5-9ddc-075305530336-00-2p6qa1s4t5fdi.riker.replit.dev/src/components/home/hero.tsx:24:32)
+    at div
+    at Home
+    at Route (https://8de64280-8a6c-40d5-9ddc-075305530336-00-2p6qa1s4t5fdi.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=1920ecdf:323:16)
+    at Switch (https://8de64280-8a6c-40d5-9ddc-075305530336-00-2p6qa1s4t5fdi.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=1920ecdf:379:17)
+    at main
+    at Route (https://8de64280-8a6c-40d5-9ddc-075305530336-00-2p6qa1s4t5fdi.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=1920ecdf:323:16)
+    at Switch (https://8de64280-8a6c-40d5-9ddc-075305530336-00-2p6qa1s4t5fdi.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=1920ecdf:379:17)
+    at div
+    at Router
+    at AuthProvider (https://8de64280-8a6c-40d5-9ddc-075305530336-00-2p6qa1s4t5fdi.riker.replit.dev/src/hooks/use-auth.tsx:23:32)
+    at QueryClientProvider (https://8de64280-8a6c-40d5-9ddc-075305530336-00-2p6qa1s4t5fdi.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=1920ecdf:2805:3)
+    at App
