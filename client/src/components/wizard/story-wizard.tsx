@@ -32,7 +32,15 @@ const StoryWizard = () => {
   
   const generateStoryMutation = useMutation({
     mutationFn: async (storyData: WizardData) => {
-      const response = await apiRequest("POST", "/api/stories/generate", storyData);
+      // Adaptar dados para o formato esperado pela API
+      const payload = {
+        characters: storyData.characterIds,
+        theme: storyData.themeId,
+        ageGroup: storyData.ageGroup,
+        childName: storyData.childName
+      };
+      
+      const response = await apiRequest("POST", "/api/stories/generate", payload);
       return response.json();
     },
     onSuccess: (story) => {
