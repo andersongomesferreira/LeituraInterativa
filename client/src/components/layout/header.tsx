@@ -57,35 +57,27 @@ const Header = () => {
     <header className="bg-white shadow-md">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center">
-          <Link href="/">
-            <a className="flex items-center">
-              <svg viewBox="0 0 100 100" className="h-12 w-auto mr-3 text-primary">
-                <circle cx="50" cy="50" r="40" fill="currentColor" />
-                <text x="50" y="65" fontFamily="Arial" fontSize="50" fill="white" textAnchor="middle">L</text>
-              </svg>
-              <h1 className="text-2xl font-heading font-bold text-primary">
-                Leiturinha<span className="text-secondary">Bot</span>
-              </h1>
-            </a>
+          <Link href="/" className="flex items-center">
+            <svg viewBox="0 0 100 100" className="h-12 w-auto mr-3 text-primary">
+              <circle cx="50" cy="50" r="40" fill="currentColor" />
+              <text x="50" y="65" fontFamily="Arial" fontSize="50" fill="white" textAnchor="middle">L</text>
+            </svg>
+            <h1 className="text-2xl font-heading font-bold text-primary">
+              Leiturinha<span className="text-secondary">Bot</span>
+            </h1>
           </Link>
         </div>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-6">
-          <Link href="/">
-            <a className="font-heading font-semibold hover:text-primary transition-colors">
-              Início
-            </a>
+          <Link href="/" className="font-heading font-semibold hover:text-primary transition-colors">
+            Início
           </Link>
-          <Link href="/story/create">
-            <a className="font-heading font-semibold hover:text-primary transition-colors">
-              Histórias
-            </a>
+          <Link href="/story/create" className="font-heading font-semibold hover:text-primary transition-colors">
+            Histórias
           </Link>
-          <Link href="/subscription/plans">
-            <a className="font-heading font-semibold hover:text-primary transition-colors">
-              Planos
-            </a>
+          <Link href="/subscription/plans" className="font-heading font-semibold hover:text-primary transition-colors">
+            Planos
           </Link>
 
           {authStatus?.isAuthenticated ? (
@@ -100,13 +92,13 @@ const Header = () => {
                 <DropdownMenuLabel>Olá, {authStatus.user?.name}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/parent">
-                    <a className="w-full">Perfil dos Pais</a>
+                  <Link href="/dashboard/parent" className="w-full">
+                    Perfil dos Pais
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/subscription/plans">
-                    <a className="w-full">Assinatura</a>
+                  <Link href="/subscription/plans" className="w-full">
+                    Assinatura
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -118,7 +110,7 @@ const Header = () => {
           ) : (
             <Button asChild className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-full font-heading font-semibold transition-colors">
               <Link href="/login">
-                <a>Entrar</a>
+                Entrar
               </Link>
             </Button>
           )}
@@ -138,27 +130,19 @@ const Header = () => {
       {mobileMenuOpen && (
         <div className="md:hidden bg-white shadow-md py-4 px-4">
           <nav className="flex flex-col space-y-4">
-            <Link href="/">
-              <a className="font-heading font-semibold hover:text-primary transition-colors py-2">
-                Início
-              </a>
+            <Link href="/" className="font-heading font-semibold hover:text-primary transition-colors py-2">
+              Início
             </Link>
-            <Link href="/story/create">
-              <a className="font-heading font-semibold hover:text-primary transition-colors py-2">
-                Histórias
-              </a>
+            <Link href="/story/create" className="font-heading font-semibold hover:text-primary transition-colors py-2">
+              Histórias
             </Link>
-            <Link href="/subscription/plans">
-              <a className="font-heading font-semibold hover:text-primary transition-colors py-2">
-                Planos
-              </a>
+            <Link href="/subscription/plans" className="font-heading font-semibold hover:text-primary transition-colors py-2">
+              Planos
             </Link>
             {authStatus?.isAuthenticated ? (
               <>
-                <Link href="/dashboard/parent">
-                  <a className="font-heading font-semibold hover:text-primary transition-colors py-2">
-                    Perfil dos Pais
-                  </a>
+                <Link href="/dashboard/parent" className="font-heading font-semibold hover:text-primary transition-colors py-2">
+                  Perfil dos Pais
                 </Link>
                 <button
                   onClick={handleLogout}
@@ -168,10 +152,8 @@ const Header = () => {
                 </button>
               </>
             ) : (
-              <Link href="/login">
-                <a className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-full font-heading font-semibold transition-colors text-center">
-                  Entrar
-                </a>
+              <Link href="/login" className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-full font-heading font-semibold transition-colors text-center">
+                Entrar
               </Link>
             )}
           </nav>
