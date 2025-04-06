@@ -25,8 +25,6 @@ export interface GeneratedStory {
 export interface Chapter {
   title: string;
   content: string;
-  imagePrompt?: string;
-  imageUrl?: string;
 }
 
 export interface GeneratedImage {
@@ -48,8 +46,7 @@ export function extractChapters(content: string): Chapter[] {
     
     chapters.push({
       title,
-      content: chapterContent,
-      imagePrompt: `Desenho infantil colorido e cartunizado ilustrando "${title}" - um desenho simples e divertido para crianças, estilo ilustração de livro infantil` 
+      content: chapterContent
     });
   }
   
@@ -76,16 +73,14 @@ export function extractChapters(content: string): Chapter[] {
         
         chapters.push({
           title,
-          content: chapterContent,
-          imagePrompt: `Desenho infantil colorido e cartunizado ilustrando "${title}" - um desenho simples e divertido para crianças, estilo ilustração de livro infantil`
+          content: chapterContent
         });
       }
     } else {
       // Se houver poucos parágrafos, criamos um único capítulo
       chapters.push({
         title: "A História",
-        content,
-        imagePrompt: "Desenho infantil colorido e cartunizado ilustrando a história - um desenho simples e divertido para crianças, estilo ilustração de livro infantil"
+        content
       });
     }
   }

@@ -1,0 +1,59 @@
+1. Remove illustrations from stories - they want text-only content
+2. Use a wizard-style interface for story creation and presentation
+3. Each chapter should be presented in a wizard step format
+4. The story creation process should follow a wizard flow with steps for:
+   - Selecting age
+   - Selecting character
+   - Selecting theme
+   - Final story generation
+5. Recreate all characters
+6. Add functionality for children to create custom/personalized characters
+7. The custom character should function as a personal mascot
+
+I'll create a concise, bullet-pointed specification for these changes in English.
+
+# LeiturinhaBot - Wizard Interface & Text-Only Redesign
+
+## Text-Only Story Format
+- Remove all story illustrations
+- Present pure text content for all stories
+- Display each chapter as a separate wizard step
+- Implement "Next Chapter" navigation between sections
+
+## Wizard-Based Story Generation
+- Redesign story creation as a step-by-step wizard:
+  1. Age selection
+  2. Character selection
+  3. Theme selection
+  4. Story generation
+- Clear visual progress indicators between steps
+- Option to go back/modify previous selections
+
+## Character System Redesign
+- Recreate all existing characters with fresh designs
+- Add "Create Your Own Character" functionality
+- Allow customization of:
+  - Appearance
+  - Personality traits
+  - Special abilities
+  - Name
+
+## Personal Mascot Feature
+- Custom character becomes child's reading mascot
+- Mascot appears in navigation and wizard steps
+- Save mascot to user profile
+- Option to include mascot in generated stories
+- Visual representation of mascot in account area
+
+## Technical Implementation
+- Text-only story database restructuring
+- Wizard component development
+- Step validation and progression logic
+- Character creator module
+- Mascot integration across platform
+
+## User Experience
+- Simplified, linear progression through story creation
+- Clear instructions at each wizard step
+- Child-friendly mascot creator with limited, age-appropriate options
+- Consistent wizard pattern across entire platform
