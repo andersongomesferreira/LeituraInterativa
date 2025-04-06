@@ -27,6 +27,7 @@ function Router() {
           <Route path="/dashboard/parent" component={ParentDashboard} />
           <Route path="/dashboard/child/:id" component={ChildDashboard} />
           <Route path="/story/create" component={CreateStory} />
+          <Route path="/story/read/:id" component={ReadStory} />
           <Route path="/stories/:id" component={ReadStory} />
           <Route path="/subscription/plans" component={SubscriptionPlans} />
           <Route component={NotFound} />

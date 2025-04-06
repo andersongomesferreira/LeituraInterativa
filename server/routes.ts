@@ -341,12 +341,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         themeId: theme
       });
       
-      res.json({
+      const responseData = {
         ...story,
         summary: generatedStory.summary,
         readingTime: generatedStory.readingTime,
         chapters: generatedStory.chapters
-      });
+      };
+      
+      console.log("Enviando resposta de história gerada:", JSON.stringify({
+        id: responseData.id,
+        title: responseData.title,
+        chaptersCount: responseData.chapters?.length || 0
+      }));
+      
+      res.json(responseData);
     } catch (error) {
       console.error("Error generating story:", error);
       res.status(500).json({ message: "Erro ao gerar história" });

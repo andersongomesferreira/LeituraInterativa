@@ -3,7 +3,16 @@ import { useRoute } from "wouter";
 import StoryReader from "@/components/wizard/story-reader";
 
 const ReadStoryPage = () => {
-  const [, params] = useRoute<{ id: string }>("/stories/:id");
+  // Capturar ambos os formatos de rota
+  const [matchStories] = useRoute<{ id: string }>("/stories/:id");
+  const [matchStoryRead] = useRoute<{ id: string }>("/story/read/:id");
+  
+  // Extrair os parâmetros da URL
+  const [, paramsStories] = useRoute<{ id: string }>("/stories/:id");
+  const [, paramsStoryRead] = useRoute<{ id: string }>("/story/read/:id");
+  
+  // Usar os parâmetros do caminho que corresponder
+  const params = matchStoryRead ? paramsStoryRead : paramsStories;
   const storyId = params?.id ? parseInt(params.id) : 0;
 
   if (!storyId) {

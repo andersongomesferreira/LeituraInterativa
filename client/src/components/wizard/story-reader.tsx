@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { formatReadingTime } from "@/lib/utils";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Image, RefreshCw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface Chapter {
   title: string;
@@ -42,6 +45,9 @@ interface StoryReaderProps {
 const StoryReader = ({ storyId, childId }: StoryReaderProps) => {
   const [currentChapter, setCurrentChapter] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [imageGenerating, setImageGenerating] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Fetch story details
   const { data: story, isLoading } = useQuery<Story>({
@@ -52,6 +58,123 @@ const StoryReader = ({ storyId, childId }: StoryReaderProps) => {
   const { data: characters = [] } = useQuery<Character[]>({
     queryKey: ["/api/characters"],
     enabled: !!story,
+  });
+  
+  // Mutation para gerar ilustração para um capítulo
+  const generateImageMutation = useMutation({
+    mutationFn: async ({ chapterIndex, chapterTitle, chapterContent, characterNames }: { 
+      chapterIndex: number, 
+      chapterTitle: string, 
+      chapterContent: string,
+      characterNames: string[]
+    }) => {
+      setImageGenerating(true);
+      
+      try {
+        // Tentar usar o prompt de imagem do capítulo, ou gerar baseado no conteúdo
+        const promptSource = story?.chapters?.[chapterIndex]?.imagePrompt || 
+          `Ilustração para o capítulo "${chapterTitle}": ${chapterContent.substring(0, 200)}`;
+          
+        const payload = {
+          chapterTitle,
+          chapterContent,
+          characters: characterNames,
+          options: {
+            style: "cartoon",
+            mood: "adventure",
+            ageGroup: story?.ageGroup
+          }
+        };
+        
+        const response = await apiRequest("POST", "/api/stories/generateChapterImage", payload);
+        return { response, chapterIndex };
+      } catch (error) {
+        console.error("Erro ao gerar imagem:", error);
+        throw error;
+      } finally {
+        setImageGenerating(false);
+      }
+    },
+    onSuccess: ({ response, chapterIndex }) => {
+      if (response && response.imageUrl) {
+        // Atualizar o cache do TanStack Query para incluir a nova URL da imagem
+        queryClient.setQueryData([`/api/stories/${storyId}`], (oldData: any) => {
+          if (oldData && oldData.chapters && oldData.chapters[chapterIndex]) {
+            const updatedChapters = [...oldData.chapters];
+            updatedChapters[chapterIndex] = {
+              ...updatedChapters[chapterIndex],
+              imageUrl: response.imageUrl
+            };
+            
+            return {
+              ...oldData,
+              chapters: updatedChapters
+            };
+          }
+          return oldData;
+        });
+        
+        toast({
+          title: "Ilustração gerada",
+          description: "A ilustração para este capítulo foi criada com sucesso!",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao gerar ilustração",
+        description: error.message || "Não foi possível criar a ilustração. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Mutation para gerar todas as ilustrações de uma história
+  const generateAllIllustrationsMutation = useMutation({
+    mutationFn: async () => {
+      if (!story) throw new Error("História não disponível");
+      
+      toast({
+        title: "Gerando ilustrações",
+        description: "Estamos criando ilustrações para todos os capítulos. Isso pode levar alguns instantes.",
+      });
+      
+      const response = await apiRequest("POST", `/api/stories/${storyId}/generateIllustrations`, {
+        options: {
+          style: "cartoon",
+          mood: "adventure",
+          ageGroup: story.ageGroup
+        }
+      });
+      
+      return response;
+    },
+    onSuccess: (response) => {
+      // Atualizar o cache com os capítulos atualizados
+      if (response && response.chaptersWithImages) {
+        queryClient.setQueryData([`/api/stories/${storyId}`], (oldData: any) => {
+          if (oldData) {
+            return {
+              ...oldData,
+              chapters: response.chaptersWithImages
+            };
+          }
+          return oldData;
+        });
+        
+        toast({
+          title: "Ilustrações geradas",
+          description: `${response.successfulIllustrations} de ${response.totalChapters} ilustrações foram criadas com sucesso!`,
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao gerar ilustrações",
+        description: error.message || "Não foi possível criar as ilustrações. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   });
 
   // Update reading session
@@ -121,6 +244,28 @@ const StoryReader = ({ storyId, childId }: StoryReaderProps) => {
   const chapters = story.chapters || [];
   const currentChapterContent = chapters[currentChapter];
 
+  // Função para obter os nomes dos personagens a partir dos IDs
+  const getCharacterNames = () => {
+    return (story?.characterIds || [])
+      .map(id => {
+        const character = characters.find(c => c.id === id);
+        return character ? character.name.split(",")[0] : "";
+      })
+      .filter(name => name.length > 0);
+  };
+
+  // Função para gerar ou regenerar a ilustração do capítulo atual
+  const generateCurrentChapterImage = () => {
+    if (!currentChapterContent) return;
+    
+    generateImageMutation.mutate({
+      chapterIndex: currentChapter,
+      chapterTitle: currentChapterContent.title,
+      chapterContent: currentChapterContent.content,
+      characterNames: getCharacterNames()
+    });
+  };
+
   return (
     <div className="container max-w-4xl py-8">
       <Card className="shadow-lg">
@@ -150,17 +295,89 @@ const StoryReader = ({ storyId, childId }: StoryReaderProps) => {
         <CardContent className="pt-6 px-8">
           {currentChapterContent && (
             <div className="py-6">
-              <h2 className="text-xl font-bold mb-5 text-primary">
-                {currentChapterContent.title}
-              </h2>
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-xl font-bold text-primary">
+                  {currentChapterContent.title}
+                </h2>
+                <div className="flex space-x-2">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          onClick={generateCurrentChapterImage}
+                          disabled={imageGenerating || generateImageMutation.isPending}
+                        >
+                          {imageGenerating || generateImageMutation.isPending ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Image className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Gerar ilustração para este capítulo</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => generateAllIllustrationsMutation.mutate()}
+                          disabled={generateAllIllustrationsMutation.isPending}
+                          className="text-xs"
+                        >
+                          {generateAllIllustrationsMutation.isPending ? (
+                            <>
+                              <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
+                              Gerando...
+                            </>
+                          ) : (
+                            <>
+                              <Image className="mr-1 h-3 w-3" />
+                              Gerar todas as ilustrações
+                            </>
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Gerar ilustrações para todos os capítulos da história</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </div>
               
-              {currentChapterContent.imageUrl && (
+              {currentChapterContent.imageUrl ? (
                 <div className="mb-6 rounded-lg overflow-hidden shadow-md">
                   <img 
                     src={currentChapterContent.imageUrl} 
                     alt={`Ilustração para ${currentChapterContent.title}`}
                     className="w-full h-auto object-cover"
                   />
+                </div>
+              ) : imageGenerating || generateImageMutation.isPending ? (
+                <div className="mb-6 flex items-center justify-center bg-muted h-64 rounded-lg">
+                  <div className="text-center">
+                    <RefreshCw className="h-10 w-10 animate-spin mx-auto mb-2 text-primary/60" />
+                    <p className="text-muted-foreground">Gerando ilustração...</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-6 flex items-center justify-center border border-dashed border-muted-foreground/50 h-64 rounded-lg">
+                  <Button
+                    variant="ghost"
+                    className="flex flex-col gap-2 h-auto p-6"
+                    onClick={generateCurrentChapterImage}
+                  >
+                    <Image className="h-10 w-10 text-primary/60" />
+                    <span className="text-muted-foreground">Clique para gerar uma ilustração</span>
+                  </Button>
                 </div>
               )}
               

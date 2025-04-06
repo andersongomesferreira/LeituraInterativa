@@ -40,15 +40,40 @@ const StoryWizard = () => {
         childName: storyData.childName
       };
       
-      const response = await apiRequest("POST", "/api/stories/generate", payload);
-      return response.json();
+      try {
+        const response = await apiRequest("POST", "/api/stories/generate", payload);
+        // Verificar se a resposta é uma string JSON ou já é um objeto
+        if (typeof response === 'object' && response !== null) {
+          return response; // Já é um objeto
+        } else if (response && typeof response.json === 'function') {
+          return response.json(); // É uma resposta fetch com método json()
+        } else {
+          throw new Error("Formato de resposta inválido");
+        }
+      } catch (error) {
+        console.error("Erro ao processar resposta:", error);
+        throw error;
+      }
     },
     onSuccess: (story) => {
+      console.log("História criada com sucesso:", story);
+      
       toast({
         title: "História criada com sucesso!",
         description: "Sua história foi gerada e está pronta para leitura.",
       });
-      navigate(`/stories/${story.id}`);
+      
+      // Verificar o formato da resposta e construir a URL correta
+      if (story && story.id) {
+        navigate(`/story/read/${story.id}`);
+      } else {
+        console.error("ID da história não disponível na resposta:", story);
+        toast({
+          title: "Aviso",
+          description: "História criada, mas não foi possível navegar automaticamente para a leitura.",
+          variant: "destructive",
+        });
+      }
     },
     onError: (error) => {
       toast({
