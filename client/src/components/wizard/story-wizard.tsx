@@ -45,13 +45,13 @@ const StoryWizard = () => {
       try {
         // apiRequest já retorna o JSON processado
         const response = await apiRequest("POST", "/api/stories/generate", payload);
-        return response;
+        return response as any;
       } catch (error) {
         console.error("Erro ao processar resposta:", error);
         throw error;
       }
     },
-    onSuccess: (story) => {
+    onSuccess: (story: any) => {
       console.log("História criada com sucesso:", story);
       
       toast({
@@ -60,7 +60,7 @@ const StoryWizard = () => {
       });
       
       // Verificar o formato da resposta e construir a URL correta
-      if (story && story.id) {
+      if (story && 'id' in story) {
         // Use setTimeout to ensure state updates are processed before navigation
         setTimeout(() => {
           navigate(`/story/read/${story.id}`);
@@ -75,7 +75,7 @@ const StoryWizard = () => {
         
         // Adicionar um pequeno atraso antes de tentar navegar novamente
         setTimeout(() => {
-          if (story && story.id) {
+          if (story && 'id' in story) {
             navigate(`/story/read/${story.id}`);
           }
         }, 1000);

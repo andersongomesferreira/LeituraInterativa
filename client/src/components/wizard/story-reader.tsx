@@ -89,7 +89,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         };
         
         const response = await apiRequest("POST", "/api/stories/generateChapterImage", payload);
-        return { response, chapterIndex };
+        return { response: response as any, chapterIndex };
       } catch (error) {
         console.error("Erro ao gerar imagem:", error);
         throw error;
@@ -98,7 +98,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
       }
     },
     onSuccess: ({ response, chapterIndex }) => {
-      if (response && response.imageUrl) {
+      if (response && 'imageUrl' in response) {
         // Atualizar o cache do TanStack Query para incluir a nova URL da imagem
         queryClient.setQueryData([`/api/stories/${storyId}`], (oldData: any) => {
           if (oldData && oldData.chapters && oldData.chapters[chapterIndex]) {
@@ -149,11 +149,11 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         }
       });
       
-      return response;
+      return response as any;
     },
     onSuccess: (response) => {
       // Atualizar o cache com os capítulos atualizados
-      if (response && response.chaptersWithImages) {
+      if (response && 'chaptersWithImages' in response) {
         queryClient.setQueryData([`/api/stories/${storyId}`], (oldData: any) => {
           if (oldData) {
             return {
@@ -166,7 +166,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         
         toast({
           title: "Ilustrações geradas",
-          description: `${response.successfulIllustrations} de ${response.totalChapters} ilustrações foram criadas com sucesso!`,
+          description: `${response.successfulIllustrations || 0} de ${response.totalChapters || 0} ilustrações foram criadas com sucesso!`,
         });
       }
     },

@@ -84,6 +84,94 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
+  
+  /* Storybook character card */
+  .storybook-character-card {
+    transition: all 0.3s ease-in-out;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+  }
+  
+  .storybook-character-card:hover {
+    transform: translateY(-10px) scale(1.02);
+    z-index: 10;
+  }
+  
+  .storybook-character-card::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 10%;
+    width: 80%;
+    height: 20px;
+    background: rgba(0,0,0,0.1);
+    filter: blur(10px);
+    border-radius: 50%;
+    z-index: -1;
+    transition: all 0.3s ease-in-out;
+    opacity: 0.5;
+  }
+  
+  .storybook-character-card:hover::after {
+    width: 70%;
+    left: 15%;
+    opacity: 0.7;
+  }
+  
+  /* Character animation effects */
+  .character-bounce {
+    animation: bounce-subtle 3s ease-in-out infinite;
+  }
+  
+  @keyframes bounce-subtle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+  
+  .character-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+  }
+  
+  /* Sparkle animations */
+  .sparkle {
+    position: absolute;
+    background-color: white;
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  .sparkle-sm {
+    width: 3px;
+    height: 3px;
+    animation: sparkle-animation 4s ease-in-out infinite;
+  }
+  
+  .sparkle-md {
+    width: 5px;
+    height: 5px;
+    animation: sparkle-animation 5s ease-in-out infinite 1s;
+  }
+  
+  .sparkle-lg {
+    width: 7px;
+    height: 7px;
+    animation: sparkle-animation 6s ease-in-out infinite 2s;
+  }
+  
+  @keyframes sparkle-animation {
+    0% { transform: scale(0); opacity: 0; }
+    20% { transform: scale(1); opacity: 0.8; }
+    40% { transform: scale(0.2); opacity: 0.5; }
+    60% { transform: scale(1.2); opacity: 0.8; }
+    80% { transform: scale(0.5); opacity: 0.5; }
+    100% { transform: scale(0); opacity: 0; }
+  }
 }
 
 @layer components {
