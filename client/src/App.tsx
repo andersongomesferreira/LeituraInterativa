@@ -23,7 +23,10 @@ import AdminDashboard from "@/pages/admin";
 
 function Router() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col relative">
+      {/* Colorful dots pattern at the top of the entire app */}
+      <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 z-50"></div>
+      
       {/* Regular routes with header/footer */}
       <Switch>
         {/* Admin routes - no header/footer */}
@@ -38,22 +41,24 @@ function Router() {
         {/* Regular routes */}
         <Route path="*">
           <>
-            <Header />
-            <main className="flex-grow">
-              <Switch>
-                <Route path="/" component={Home} />
-                <Route path="/login" component={Login} />
-                <Route path="/register" component={Register} />
-                <Route path="/dashboard/parent" component={ParentDashboard} />
-                <Route path="/dashboard/child/:id" component={ChildDashboard} />
-                <Route path="/story/create" component={CreateStory} />
-                <Route path="/story/read/:id" component={ReadStory} />
-                <Route path="/stories/:id" component={ReadStory} />
-                <Route path="/subscription/plans" component={SubscriptionPlans} />
-                <Route component={NotFound} />
-              </Switch>
-            </main>
-            <Footer />
+            <div className="pt-4"> {/* Add padding to account for the ribbon */}
+              <Header />
+              <main className="flex-grow">
+                <Switch>
+                  <Route path="/" component={Home} />
+                  <Route path="/login" component={Login} />
+                  <Route path="/register" component={Register} />
+                  <Route path="/dashboard/parent" component={ParentDashboard} />
+                  <Route path="/dashboard/child/:id" component={ChildDashboard} />
+                  <Route path="/story/create" component={CreateStory} />
+                  <Route path="/story/read/:id" component={ReadStory} />
+                  <Route path="/stories/:id" component={ReadStory} />
+                  <Route path="/subscription/plans" component={SubscriptionPlans} />
+                  <Route component={NotFound} />
+                </Switch>
+              </main>
+              <Footer />
+            </div>
           </>
         </Route>
       </Switch>

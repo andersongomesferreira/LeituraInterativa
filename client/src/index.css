@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Wix+Madefor+Display:wght@400;500;600;700;800&family=Montserrat:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Wix+Madefor+Display:wght@400;500;600;700;800&family=Montserrat:wght@300;400;500;600;700&family=Bubblegum+Sans&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -17,6 +17,39 @@
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
+  }
+  
+  /* Set Bubblegum Sans for all headings */
+  .font-heading {
+    font-family: 'Bubblegum Sans', 'Wix Madefor Display', system-ui, sans-serif;
+  }
+  
+  /* Colorful dots pattern inspired by Storymakery */
+  .rainbow-dots-top {
+    position: relative;
+  }
+  
+  .rainbow-dots-top::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background: repeating-linear-gradient(
+      to right,
+      #ff5252 0px,
+      #ff5252 8px,
+      #ffb142 8px,
+      #ffb142 16px,
+      #33d9b2 16px,
+      #33d9b2 24px,
+      #34ace0 24px,
+      #34ace0 32px,
+      #706fd3 32px,
+      #706fd3 40px
+    );
+    border-radius: 4px;
   }
 }
 
