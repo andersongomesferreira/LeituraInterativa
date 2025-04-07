@@ -11,7 +11,7 @@ export const apiRequest = async (
   method: string,
   endpoint: string,
   data?: any
-): Promise<Response> => {
+): Promise<any> => {
   const options: RequestInit = {
     method,
     headers: {
@@ -30,14 +30,6 @@ export const apiRequest = async (
   if (!response.ok) {
     try {
       const errorData = await response.json();
-      // Create a clone of the response to return
-      const clonedResponse = new Response(JSON.stringify(errorData), {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-      });
-
-      // Throw an error with the message from the API
       throw new Error(errorData.message || "Erro na requisição");
     } catch (parseError) {
       if (parseError instanceof Error && parseError.message !== "Erro na requisição") {
@@ -48,7 +40,13 @@ export const apiRequest = async (
     }
   }
 
-  return response;
+  // Processar a resposta como JSON e retornar os dados
+  try {
+    return await response.json();
+  } catch (error) {
+    console.error("Erro ao processar resposta JSON:", error);
+    throw new Error("Erro ao processar resposta do servidor");
+  }
 };
 
 type UnauthorizedBehavior = "returnNull" | "throw";

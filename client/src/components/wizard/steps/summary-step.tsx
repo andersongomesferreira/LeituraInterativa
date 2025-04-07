@@ -27,7 +27,7 @@ interface SummaryStepProps {
 const SummaryStep: React.FC<SummaryStepProps> = ({ wizardData, onUpdateChildName, onToggleTextOnly }) => {
   const [useChildName, setUseChildName] = useState(!!wizardData.childName);
   const [childName, setChildName] = useState(wizardData.childName || "");
-  const [textOnly, setTextOnly] = useState(wizardData.textOnly || false);
+  const [textOnly, setTextOnly] = useState(wizardData.textOnly !== false);
 
   const { data: characters = [] } = useQuery<Character[]>({
     queryKey: ["/api/characters"],

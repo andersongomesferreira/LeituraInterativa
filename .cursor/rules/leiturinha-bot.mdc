@@ -1,0 +1,174 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# INSTRUÇÕES PARA ASSISTENTES DE IA NO PROJETO LEITURINHABOT
+
+Estas instruções devem ser usadas no início de qualquer sessão de chat no Cursor ou Replit para garantir continuidade no desenvolvimento do projeto. Copie e cole este conteúdo ao iniciar uma nova conversa com qualquer assistente de IA.
+
+## PROTOCOLO OBRIGATÓRIO DE CONTEXTUALIZAÇÃO
+
+Antes de iniciar qualquer tarefa, você DEVE executar estes passos para compreender o estado atual do projeto:
+
+1. **Leia os documentos de memória do desenvolvimento**:
+   ```
+   /docs/memoria/desenvolvimento/estado-atual.md
+   /docs/memoria/desenvolvimento/proximos-passos.md
+   /docs/memoria/desenvolvimento/progresso.md
+   ```
+
+2. **Consulte documentação específica para a tarefa atual**:
+   - Se envolver geração de imagens: `/docs/modulos/geracao-imagens.md`
+   - Se envolver convenções de código: `/docs/desenvolvimento/convencoes-codigo.md`
+   - Se envolver mudanças arquiteturais: `/docs/projeto/arquitetura.md` (se existir)
+   - Se envolver melhorias no sistema: `/docs/projeto/melhorias-sistema-imagens.md` (e outros docs similares)
+
+3. **Verifique qualquer documento relacionado à área específica**:
+   - Para componentes: `/docs/componentes/{categoria}/{componente}.md`
+   - Para módulos: `/docs/modulos/{nome-modulo}.md`
+
+## PROTOCOLO DE IMPLEMENTAÇÃO
+
+Ao executar uma tarefa de desenvolvimento:
+
+1. **Identifique o próximo passo prioritário**:
+   - Consulte em `/docs/memoria/desenvolvimento/proximos-passos.md`
+   - Verifique qual item não marcado como concluído tem maior prioridade
+   - Analise dependências entre tarefas e resolva bloqueadores primeiro
+
+2. **Implemente incrementalmente**:
+   - Trabalhe em uma funcionalidade específica por vez
+   - Divida componentes complexos em partes gerenciáveis
+   - Siga rigorosamente as convenções documentadas em `/docs/desenvolvimento/convencoes-codigo.md`
+   - Teste cada alteração antes de prosseguir para a próxima
+
+3. **Mantenha consistência com o código existente**:
+   - Observe padrões de nomeação e estrutura atuais 
+   - Reutilize serviços e utilitários existentes quando aplicável
+   - Verifique implementações similares como referência
+
+## PROTOCOLO DE ATUALIZAÇÃO DA DOCUMENTAÇÃO
+
+Após completar qualquer tarefa, você DEVE atualizar a documentação:
+
+1. **Atualize `/docs/memoria/desenvolvimento/estado-atual.md`**:
+   - Adicione novas funcionalidades implementadas na seção apropriada
+   - Marque como **[NOVO]** itens adicionados recentemente
+   - Remova a marcação **[NOVO]** de itens que não são mais recentes (mais de 2 semanas)
+
+2. **Atualize `/docs/memoria/desenvolvimento/proximos-passos.md`**:
+   - Marque com ✅ as tarefas concluídas
+   - Adicione a data de conclusão: `[CONCLUÍDO em DD/MM/AAAA]`
+   - Adicione breve descrição da implementação quando relevante
+   - Reorganize prioridades se necessário com base no novo estado
+
+3. **Atualize `/docs/memoria/desenvolvimento/progresso.md`**:
+   - Adicione nova entrada no histórico de atualizações
+   - Atualize métricas quando aplicável
+   - Atualize progresso por módulo conforme tarefas são concluídas
+   - Atualize riscos e débitos técnicos se a implementação os modificou
+
+4. **Mantenha documentação específica de módulos/componentes**:
+   - Crie documentação em `/docs/modulos/[nome-modulo].md` para novos módulos
+   - Crie documentação em `/docs/componentes/[categoria]/[nome-componente].md` para novos componentes
+   - Atualize documentação existente quando houver modificações significativas
+
+## PROTOCOLOS DE TESTE E QUALIDADE
+
+1. **Antes de considerar uma tarefa concluída**:
+   - Implemente testes unitários para novas funcionalidades
+   - Verifique compatibilidade com diferentes faixas etárias (3-5, 6-8, 9-12)
+   - Teste casos de borda e condições de erro
+   - Garanta que o código suporte crescimento futuro (escalabilidade)
+
+2. **Para funcionalidades de geração de conteúdo**:
+   - Teste com diferentes estilos (cartoon, watercolor, pencil, digital)
+   - Verifique resiliência do sistema com provedores indisponíveis
+   - Teste tempos de resposta e implemente timeouts adequados
+   - Considere limitações de API e implementações de fallback
+
+## TOMADA DE DECISÕES E AUTONOMIA
+
+1. **Decisões que você pode tomar autonomamente**:
+   - Implementações técnicas seguindo padrões estabelecidos
+   - Refatorações menores para melhorar legibilidade/performance
+   - Correções de bugs que não afetam a API pública
+   - Melhorias de documentação e comentários
+
+2. **Decisões que requerem consulta ao usuário**:
+   - Mudanças na API pública de módulos
+   - Alterações arquiteturais ou estruturais significativas
+   - Adição de novas dependências externas
+   - Mudanças que afetam o modelo de dados
+   - Alterações que modificariam a experiência do usuário final
+
+## COMUNICAÇÃO ENTRE SESSÕES
+
+1. **Início de sessão**: 
+   - Resumir o estado atual baseado nos documentos de memória
+   - Identificar claramente a tarefa que será trabalhada na sessão
+   - Confirmar prioridades e dependências
+
+2. **Durante a sessão**:
+   - Documentar decisões importantes tomadas durante a implementação
+   - Registrar problemas encontrados e suas soluções
+
+3. **Final de sessão**: 
+   - Documentar todo o progresso feito
+   - Identificar claramente o próximo passo lógico
+   - Listar quaisquer questões pendentes ou bloqueios
+
+4. **Referências explícitas**: 
+   - Sempre referenciar arquivos específicos ao discutir código
+   - Usar números de linha quando relevante
+   - Citar documentação específica para justificar decisões
+
+## TRATAMENTO DE BUGS E PROBLEMAS
+
+1. **Ao encontrar um bug**:
+   - Documente o problema com passos reproduzíveis
+   - Identifique a causa raiz antes de implementar correções
+   - Priorize bugs que afetam funcionalidades críticas
+   - Adicione testes que confirmam a correção
+
+2. **Para problemas de integração**:
+   - Implemente logging detalhado de requisições/respostas
+   - Configure retry policies adequadas para APIs externas
+   - Documente limitações dos provedores externos
+   - Implemente circuit breakers quando necessário
+
+## PADRÕES TÉCNICOS NÃO-NEGOCIÁVEIS
+
+1. **Toda a interface de usuário e documentação DEVE ser em Português do Brasil**
+2. **Todo código DEVE seguir os padrões de TypeScript e convenções documentadas**
+3. **Todo código relacionado a usuários DEVE implementar isolamento de dados com userId/childProfileId**
+4. **Toda funcionalidade DEVE incluir tratamento adequado de erros e logging**
+5. **Toda nova implementação DEVE preservar a arquitetura modular existente**
+6. **Todo código que lida com conteúdo para crianças DEVE implementar filtragem de conteúdo inadequado**
+7. **Toda interação com APIs externas DEVE incluir timeout, retry policy e fallback**
+
+## USO DE LOGS E CONSOLE
+
+- **NUNCA usar `console.log` diretamente** - sempre usar o serviço de logger estruturado
+- **SEMPRE incluir contexto nos logs** - IDs relevantes, módulos e operações
+- **SEMPRE categorizar logs por nível** - error, warn, info, debug, trace
+- **SEMPRE estruturar logs para facilitar filtragem e busca**
+
+## SEGURANÇA E PRIVACIDADE
+
+1. **Dados de usuário**:
+   - NUNCA exponha IDs ou dados pessoais em logs
+   - SEMPRE valide entradas de usuário no cliente E servidor
+   - SEMPRE utilize políticas RLS no PostgreSQL
+   - NUNCA armazene dados sensíveis em estado global não protegido
+
+2. **Conteúdo gerado**:
+   - SEMPRE verifique apropriação à faixa etária
+   - IMPLEMENTE sistemas de moderação para conteúdo gerado
+   - GARANTA que prompts negativos evitem conteúdo inadequado
+   - MANTENHA logs auditáveis de toda geração de conteúdo
+
+---
+
+Ao seguir estas instruções, você garante que o desenvolvimento do projeto LeiturinhaBot mantenha consistência e continuidade, independentemente da ferramenta usada (Cursor ou Replit) ou da sessão de trabalho.

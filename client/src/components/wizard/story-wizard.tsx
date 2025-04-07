@@ -27,6 +27,7 @@ const StoryWizard = () => {
     ageGroup: "",
     characterIds: [],
     themeId: 0,
+    textOnly: true
   });
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -59,27 +60,31 @@ const StoryWizard = () => {
         description: "Sua história foi gerada e está pronta para leitura.",
       });
       
-      // Verificar o formato da resposta e construir a URL correta
-      if (story && 'id' in story) {
-        // Use setTimeout to ensure state updates are processed before navigation
-        setTimeout(() => {
+      // Adicionar um tempo para garantir que a história foi completamente processada
+      setTimeout(() => {
+        // Verificar o formato da resposta e construir a URL correta
+        if (story && (typeof story.id === 'number' || typeof story.id === 'string')) {
+          console.log("Navegando para a história com ID:", story.id);
           navigate(`/story/read/${story.id}`);
-        }, 300);
-      } else {
-        console.error("ID da história não disponível na resposta:", story);
-        toast({
-          title: "Erro ao navegar",
-          description: "História criada, mas não foi possível navegar automaticamente para a leitura.",
-          variant: "destructive",
-        });
-        
-        // Adicionar um pequeno atraso antes de tentar navegar novamente
-        setTimeout(() => {
-          if (story && 'id' in story) {
-            navigate(`/story/read/${story.id}`);
+        } else {
+          console.error("ID da história não disponível na resposta:", JSON.stringify(story));
+          toast({
+            title: "Erro ao navegar",
+            description: "História criada, mas não foi possível navegar automaticamente para a leitura.",
+            variant: "destructive",
+          });
+          
+          // Tentar extrair o ID por inspeção do objeto
+          const possibleId = story?.id || story?._id || (typeof story === 'object' ? Object.values(story).find(val => typeof val === 'number') : null);
+          
+          if (possibleId) {
+            console.log("Tentando navegar com ID alternativo:", possibleId);
+            setTimeout(() => {
+              navigate(`/story/read/${possibleId}`);
+            }, 500);
           }
-        }, 1000);
-      }
+        }
+      }, 800); // Aumentando o tempo de espera
     },
     onError: (error) => {
       toast({

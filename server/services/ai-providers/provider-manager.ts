@@ -6,6 +6,8 @@ import { LexicaProvider } from './lexica-provider';
 import { ReplicateProvider } from './replicate-provider';
 import { GetImgProvider } from './getimg-provider';
 import { RunwareProvider } from './runware-provider';
+import config from '../../config';
+import logger from '../logger';
 
 // Backup image URL for when all image generation providers fail
 const BACKUP_IMAGE_URL = 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
@@ -50,6 +52,17 @@ export class AIProviderManager {
     }
   };
   
+  // Índices para rotação dos provedores
+  private currentTextProviderIndex = 0;
+  private currentImageProviderIndex = 0;
+  
+  // Provedores em falha temporária (evitar uso por um período)
+  private failedTextProviders: Map<string, number> = new Map();
+  private failedImageProviders: Map<string, number> = new Map();
+  
+  // Período de espera para tentar novamente um provedor que falhou (15 minutos)
+  private readonly RETRY_TIMEOUT = 15 * 60 * 1000;
+  
   constructor() {
     // Register default providers
     this.registerProvider(new OpenAIProvider());
@@ -65,38 +78,45 @@ export class AIProviderManager {
       this.metrics.set(provider.id, { success: 0, total: 0 });
     });
     
-    // Load API keys from environment variables
-    this.loadApiKeysFromEnv();
+    // Load API keys from configuration
+    this.loadApiKeysFromConfig();
     
-    // Start health check interval (every 15 minutes)
-    setInterval(() => this.checkAllProvidersHealth(), 15 * 60 * 1000);
+    // Rodar verificação periódica para limpar provedores falhos após o timeout
+    setInterval(() => this.cleanupFailedProviders(), 60 * 1000);
     
-    // Run initial health check
-    this.checkAllProvidersHealth();
+    logger.info('AIProviderManager inicializado com sucesso');
+    logger.info(`Provedores de texto registrados: ${Array.from(this.providers.values()).filter(p => p.capabilities.textGeneration).map(p => p.id).join(', ')}`);
+    logger.info(`Provedores de imagem registrados: ${Array.from(this.providers.values()).filter(p => p.capabilities.imageGeneration).map(p => p.id).join(', ')}`);
   }
   
   /**
-   * Load API keys from environment variables
+   * Load API keys from configuration
    */
-  private loadApiKeysFromEnv(): void {
-    console.log('Loading API keys from environment variables...');
+  private loadApiKeysFromConfig(): void {
+    console.log('Loading API keys from configuration...');
     
-    // Map environment variable names to provider IDs
-    const envKeyMap: Record<string, string> = {
-      'OPENAI_API_KEY': 'openai',
-      'ANTHROPIC_API_KEY': 'anthropic',
-      'GETIMG_AI_API_KEY': 'getimg',
-      'RUNWARE_API_KEY': 'runware',
-      'STABILITY_API_KEY': 'stability',
-      'REPLICATE_API_KEY': 'replicate'
-    };
+    // Define providers e suas chaves de configuração
+    interface ProviderKeyMap {
+      configKey: keyof typeof config.ai;
+      providerId: string;
+    }
+    
+    // Mapear as configurações de forma segura para tipos
+    const providerMappings: ProviderKeyMap[] = [
+      { configKey: 'openai', providerId: 'openai' },
+      { configKey: 'anthropic', providerId: 'anthropic' },
+      { configKey: 'stability', providerId: 'stability' },
+      { configKey: 'replicate', providerId: 'replicate' },
+      { configKey: 'getimg', providerId: 'getimg' },
+      { configKey: 'runware', providerId: 'runware' }
+    ];
     
     // Track which keys were loaded
     const loadedKeys: string[] = [];
     
     // Attempt to load and set API keys
-    Object.entries(envKeyMap).forEach(([envName, providerId]) => {
-      const apiKey = process.env[envName];
+    providerMappings.forEach(({ configKey, providerId }) => {
+      const apiKey = config.ai[configKey]?.apiKey;
       
       if (apiKey && apiKey.trim() !== '') {
         try {
@@ -104,15 +124,15 @@ export class AIProviderManager {
           
           if (result.success) {
             loadedKeys.push(providerId);
-            console.log(`Successfully loaded API key for ${providerId} from environment`);
+            console.log(`Successfully loaded API key for ${providerId} from configuration`);
           } else {
-            console.warn(`Failed to set API key for ${providerId} from environment: ${result.message}`);
+            console.warn(`Failed to set API key for ${providerId} from configuration: ${result.message}`);
           }
         } catch (error) {
           console.error(`Error setting API key for ${providerId}:`, error);
         }
       } else {
-        console.log(`No API key found for ${providerId} (${envName})`);
+        console.log(`No API key found for ${providerId}`);
       }
     });
     
@@ -173,17 +193,15 @@ export class AIProviderManager {
         console.log(`API key updated for provider: ${provider.name}`);
         
         // Immediately run a health check to update availability status
-        setTimeout(() => {
-          provider.checkHealth().then(result => {
-            if (result.isHealthy) {
-              console.log(`${provider.name} health check successful after API key update`);
-            } else {
-              console.warn(`${provider.name} health check failed after API key update: ${result.message}`);
-            }
-          }).catch(error => {
-            console.error(`Error checking health for ${provider.name} after API key update:`, error);
-          });
-        }, 0);
+        this.checkProviderHealth(providerId).then(result => {
+          if (result.isHealthy) {
+            console.log(`${provider.name} health check successful after API key update`);
+          } else {
+            console.warn(`${provider.name} health check failed after API key update: ${result.message}`);
+          }
+        }).catch(error => {
+          console.error(`Error checking health for ${provider.name} after API key update:`, error);
+        });
         
         return { 
           success: true, 
@@ -201,6 +219,32 @@ export class AIProviderManager {
       return { 
         success: false, 
         message: `Error setting API key: ${errorMessage}`
+      };
+    }
+  }
+  
+  /**
+   * Performs a health check on a specific provider
+   * @param providerId The ID of the provider to check
+   * @returns Promise with health check result
+   */
+  async checkProviderHealth(providerId: string): Promise<{ isHealthy: boolean; message: string }> {
+    const provider = this.providers.get(providerId);
+    
+    if (!provider) {
+      return {
+        isHealthy: false,
+        message: `Provider ${providerId} not found`
+      };
+    }
+    
+    try {
+      return await provider.checkHealth();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return {
+        isHealthy: false,
+        message: `Error checking health: ${errorMessage}`
       };
     }
   }
@@ -694,6 +738,149 @@ export class AIProviderManager {
           successRate
         }
       };
+    });
+  }
+  
+  /**
+   * Obtém o próximo provedor de texto disponível
+   * @returns Provedor de texto
+   */
+  private getNextTextProvider(): AIProvider | null {
+    if (this.providers.size === 0) {
+      return null;
+    }
+    
+    // Procurar por um provedor disponível
+    let checkedProviders = 0;
+    let provider: AIProvider | null = null;
+    
+    while (checkedProviders < this.providers.size) {
+      // Circular para o início se chegamos ao fim da lista
+      if (this.currentTextProviderIndex >= this.providers.size) {
+        this.currentTextProviderIndex = 0;
+      }
+      
+      const candidate = Array.from(this.providers.values())[this.currentTextProviderIndex];
+      this.currentTextProviderIndex++;
+      checkedProviders++;
+      
+      // Verificar se o provedor não está marcado como falho
+      if (!this.isTextProviderFailed(candidate.id)) {
+        provider = candidate;
+        break;
+      }
+    }
+    
+    return provider;
+  }
+  
+  /**
+   * Obtém o próximo provedor de imagem disponível
+   * @returns Provedor de imagem
+   */
+  private getNextImageProvider(): AIProvider | null {
+    if (this.providers.size === 0) {
+      return null;
+    }
+    
+    // Procurar por um provedor disponível
+    let checkedProviders = 0;
+    let provider: AIProvider | null = null;
+    
+    while (checkedProviders < this.providers.size) {
+      // Circular para o início se chegamos ao fim da lista
+      if (this.currentImageProviderIndex >= this.providers.size) {
+        this.currentImageProviderIndex = 0;
+      }
+      
+      const candidate = Array.from(this.providers.values())[this.currentImageProviderIndex];
+      this.currentImageProviderIndex++;
+      checkedProviders++;
+      
+      // Verificar se o provedor não está marcado como falho
+      if (!this.isImageProviderFailed(candidate.id)) {
+        provider = candidate;
+        break;
+      }
+    }
+    
+    return provider;
+  }
+  
+  /**
+   * Verifica se um provedor de texto está marcado como falho
+   * @param providerId ID do provedor
+   * @returns True se o provedor está em falha
+   */
+  private isTextProviderFailed(providerId: string): boolean {
+    const failTime = this.failedTextProviders.get(providerId);
+    if (!failTime) return false;
+    
+    // Se o tempo de falha expirou, remover da lista
+    if (Date.now() - failTime > this.RETRY_TIMEOUT) {
+      this.failedTextProviders.delete(providerId);
+      return false;
+    }
+    
+    return true;
+  }
+  
+  /**
+   * Verifica se um provedor de imagem está marcado como falho
+   * @param providerId ID do provedor
+   * @returns True se o provedor está em falha
+   */
+  private isImageProviderFailed(providerId: string): boolean {
+    const failTime = this.failedImageProviders.get(providerId);
+    if (!failTime) return false;
+    
+    // Se o tempo de falha expirou, remover da lista
+    if (Date.now() - failTime > this.RETRY_TIMEOUT) {
+      this.failedImageProviders.delete(providerId);
+      return false;
+    }
+    
+    return true;
+  }
+  
+  /**
+   * Marca um provedor de texto como falho
+   * @param providerId ID do provedor
+   */
+  private markTextProviderAsFailed(providerId: string): void {
+    this.failedTextProviders.set(providerId, Date.now());
+    logger.warn(`Provedor de texto ${providerId} marcado como falho temporariamente`);
+  }
+  
+  /**
+   * Marca um provedor de imagem como falho
+   * @param providerId ID do provedor
+   */
+  private markImageProviderAsFailed(providerId: string): void {
+    this.failedImageProviders.set(providerId, Date.now());
+    logger.warn(`Provedor de imagem ${providerId} marcado como falho temporariamente`);
+  }
+  
+  /**
+   * Remove provedores cuja falha expirou do período de timeout
+   */
+  private cleanupFailedProviders(): void {
+    const now = Date.now();
+    
+    // Limpar provedores de texto
+    Array.from(this.failedTextProviders.entries()).forEach(([providerId, failTime]) => {
+      if (now - failTime > this.RETRY_TIMEOUT) {
+        this.failedTextProviders.delete(providerId);
+        logger.info(`Provedor de texto ${providerId} removido da lista de falhas`);
+      }
+    });
+    
+    // Limpar provedores de imagem
+    Array.from(this.failedImageProviders.entries()).forEach(([providerId, failTime]) => {
+      if (now - failTime > this.RETRY_TIMEOUT) {
+        this.failedImageProviders.delete(providerId);
+        logger.info(`Provedor de imagem ${providerId} removido da lista de falhas`);
+      }
     });
   }
 }

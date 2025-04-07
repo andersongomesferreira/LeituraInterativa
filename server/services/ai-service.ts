@@ -4,6 +4,10 @@ import aiProviderManager, {
   ImageGenerationParams
 } from "./ai-providers";
 
+import { promptEnhancer } from './prompt-enhancement-service';
+import { characterConsistencyService } from './character-consistency-service';
+import logger from './logger';
+
 // Definir tipos para histórias e IA
 
 // Parâmetros para geração de história
@@ -412,293 +416,217 @@ export async function generateImage(
   }
 }
 
-// Função para gerar imagem para um personagem
-export async function generateCharacterImage(
-  character: string, 
-  options: {
-    style?: "cartoon" | "watercolor" | "pencil" | "digital";
-    mood?: "happy" | "adventure" | "calm" | "exciting";
-    backgroundColor?: string;
-    characterStyle?: "cute" | "funny" | "heroic";
-    ageGroup?: "3-5" | "6-8" | "9-12";
-  } = {},
-  userTier: string = "free"
-): Promise<GeneratedImage> {
-  // Construir um prompt especializado para personagem de desenho animado
-  const characterType = 
-    character.toLowerCase().includes("leão") ? "leão" :
-    character.toLowerCase().includes("tucano") ? "tucano" :
-    character.toLowerCase().includes("macaco") ? "macaco" :
-    character.toLowerCase().includes("jaguatirica") || character.toLowerCase().includes("onça") ? "felino pintado" :
-    character.toLowerCase().includes("cobra") || character.toLowerCase().includes("serpente") ? "cobra" :
-    "animal da floresta";
-    
-  const characterPrompt = `
-    PERSONAGEM: "${character}" (${characterType})
-    
-    ESTILO VISUAL OBRIGATÓRIO:
-    - ARTE: Cartoon infantil 2D com linhas GROSSAS e PRETAS bem definidas 
-    - POSE: Corpo inteiro na posição frontal ou 3/4, expressão clara e alegre
-    - VISUAL: ${options.characterStyle || "cute"}, extremamente fofo e amigável para crianças
-    - CORES: Paleta limitada (máximo 4 cores) com cores vivas e contrastantes
-    - FUNDO: ${options.backgroundColor || "sólido com cor clara"}, sem detalhes ou elementos
-    - PROPORÇÕES: Cabeça grande (40% do corpo), olhos muito expressivos e grandes
-    
-    CARACTERÍSTICAS MANDATÓRIAS:
-    - LINHAS: Contornos MUITO GROSSOS e pretos que definem claramente o personagem
-    - CORES: Escolha 2-3 cores PRINCIPAIS que serão constantes para este personagem
-    - SÍMBOLOS: Adicione 1-2 elementos visuais únicos que identifiquem este personagem
-    - DISTINÇÃO: Crie características visuais MEMORÁVEIS que serão mantidas em todas as ilustrações
-    - CONSISTÊNCIA: Este design será usado como referência para TODAS as aparições futuras
-    
-    DIRETRIZES CRÍTICAS:
-    - PÚBLICO: Arte para crianças de ${options.ageGroup || "6-8"} anos
-    - ESTILO: Extremamente simplificado e cartunizado - NADA de realismo
-    - TÉCNICA: Desenho 2D com cores planas e sólidas, sem gradientes ou sombras complexas
-    - EXPRESSÃO: Rosto MUITO expressivo, olhos grandes e expressão amigável
-    - LINHA ÚNICA: Use apenas uma linha grossa para contornos (não use linhas finas ou duplas)
-    
-    ESTE PERSONAGEM SERÁ USADO REPETIDAMENTE EM MÚLTIPLAS ILUSTRAÇÕES.
-    PREFIRA SIMPLICIDADE E MEMORABILIDADE EM VEZ DE DETALHES COMPLEXOS.
-  `;
-  
-  return generateImage(characterPrompt, {
-    ...options,
-    style: "cartoon",
-    mood: "happy"
-  }, userTier);
-}
-
-// Função para gerar imagem para um capítulo específico
+/**
+ * Gera uma imagem para um capítulo de história
+ * 
+ * @param prompt Prompt para geração de imagem (geralmente obtido do título/conteúdo do capítulo)
+ * @param storyId ID da história
+ * @param chapterId ID do capítulo (pode ser o índice)
+ * @param options Opções adicionais como faixa etária
+ * @param userTier Nível de assinatura do usuário
+ * @returns URL da imagem gerada e indicador de sucesso
+ */
 export async function generateChapterImage(
-  chapterTitle: string, 
-  chapterContent: string,
-  characters: string[] = [],
+  prompt: string,
+  storyId: number,
+  chapterId: number,
   options: {
-    style?: "cartoon" | "watercolor" | "pencil" | "digital";
-    mood?: "happy" | "adventure" | "calm" | "exciting";
-    backgroundColor?: string;
-    characterStyle?: "cute" | "funny" | "heroic";
-    ageGroup?: "3-5" | "6-8" | "9-12";
-    storyId?: number; // ID da história para consistência
-    chapterId?: number; // ID/número do capítulo para progressão
-    textOnly?: boolean; // Opção para histórias sem ilustrações
-    characterDescriptions?: any[]; // Descrições detalhadas de personagens
+    ageGroup?: string;
+    style?: string;
+    mood?: string;
+    characters?: string[];
+    storyId?: number;
+    textOnly?: boolean;
   } = {},
-  userTier: string = "free"
-): Promise<GeneratedImage> {
-  // Extrair elementos essenciais da história para incluir apenas coisas relevantes
-  // Usamos um conteúdo mais curto para manter a ilustração mais focada
-  const contentSummary = chapterContent.length > 200 
-    ? chapterContent.substring(0, 200) 
-    : chapterContent;
-  
-  // Extrair principais elementos do conteúdo para criar palavras-chave
-  const keyElements = extractKeyElements(chapterContent, chapterTitle);
-  
-  // Criar uma lista de personagens para incluir na ilustração
-  const charactersList = characters.length > 0 
-    ? `Personagens principais na cena: ${characters.join(", ")}.` 
-    : "";
-  
-  // Verificar se temos descrições de personagens detalhadas
-  let characterDescriptions = '';
-  
-  if (options.characterDescriptions && options.characterDescriptions.length > 0) {
-    // Criar uma seção com descrições detalhadas dos personagens para consistência visual
-    const characterDetailsArray = options.characterDescriptions.map(char => {
-      let details = `- ${char.name}: ${char.appearance || 'Personagem da história'}`;
-      
-      if (char.visualAttributes) {
-        if (char.visualAttributes.colors && char.visualAttributes.colors.length > 0) {
-          details += `\n    Cores principais: ${char.visualAttributes.colors.join(', ')}`;
-        }
-        if (char.visualAttributes.clothing) {
-          details += `\n    Vestimenta: ${char.visualAttributes.clothing}`;
-        }
-        if (char.visualAttributes.distinguishingFeatures && char.visualAttributes.distinguishingFeatures.length > 0) {
-          details += `\n    Características distintas: ${char.visualAttributes.distinguishingFeatures.join(', ')}`;
-        }
-      }
-      
-      return details;
+  userTier: string = 'free'
+): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
+  try {
+    // Verificar se estamos no modo text-only
+    if (options.textOnly) {
+      logger.info("Modo texto-only ativado, pulando geração de imagem");
+      return { success: true, imageUrl: "" };
+    }
+    
+    // Extrair título e conteúdo do capítulo do prompt
+    const promptParts = prompt.split(':');
+    let chapterTitle = '';
+    let chapterContent = '';
+    
+    if (promptParts.length > 1) {
+      // Formato esperado: "Ilustração para o capítulo "Título": Conteúdo..."
+      const titleMatch = promptParts[0].match(/"([^"]+)"/);
+      chapterTitle = titleMatch ? titleMatch[1] : promptParts[0];
+      chapterContent = promptParts.slice(1).join(':');
+    } else {
+      chapterContent = prompt;
+    }
+    
+    // Determinar a faixa etária e estilo com valores padrão seguros
+    const ageGroup = options.ageGroup || '6-8';
+    const style = options.style || 'cartoon';
+    const mood = options.mood || promptEnhancer.detectMood(chapterContent);
+    
+    // Buscar informações dos personagens para consistência
+    // Extrair possíveis nomes de personagens do conteúdo do capítulo
+    const characterNames = options.characters || 
+      promptEnhancer.extractCharacterNames(chapterContent);
+    
+    logger.debug(`Gerando imagem para capítulo ${chapterId} da história ${storyId} com personagens: ${characterNames.join(', ')}`);
+    
+    // Obter descrições de personagens para consistência visual
+    const characterDescriptions = await characterConsistencyService.getCharacterDescriptions(
+      storyId,
+      characterNames
+    );
+    
+    // Criar prompt aprimorado para imagem
+    const enhancedPrompt = promptEnhancer.enhanceChapterImagePrompt({
+      chapterTitle,
+      chapterContent,
+      characterDescriptions,
+      ageGroup,
+      style,
+      mood
     });
     
-    characterDescriptions = `
-    DESCRIÇÕES DETALHADAS DOS PERSONAGENS (MANTENHA CONSISTÊNCIA VISUAL COM ESTAS CARACTERÍSTICAS):
-    ${characterDetailsArray.join('\n')}
-    `;
-  }
-  
-  // Adicionar mensagem sobre progressão da história se for um capítulo específico
-  let chapterSequenceInfo = '';
-  if (options.chapterId !== undefined) {
-    chapterSequenceInfo = `
-    OBSERVAÇÃO SOBRE SEQUÊNCIA DA HISTÓRIA:
-    - Este é o capítulo ${options.chapterId} da história. 
-    - Mantenha a mesma aparência dos personagens e estilo visual de ilustrações anteriores.
-    `;
-  }
-
-  // Prompt completamente reestruturado para garantir relevância máxima e consistência de personagens
-  const scenePrompt = `
-    ILUSTRAÇÃO INFANTIL PARA CAPÍTULO: "${chapterTitle}"
+    // Definir o tamanho da imagem com base no nível de assinatura
+    const imageSize = userTier === 'free' ? '512x512' : (userTier === 'plus' ? '768x768' : '1024x1024');
     
-    CONTEXTO DO CAPÍTULO:
-    ${chapterContent.substring(0, 300)}...
-    
-    ELEMENTOS OBRIGATÓRIOS (APENAS ESTES, NÃO ADICIONE OUTROS):
-    - ${keyElements.join("\n    - ")}
-    
-    PERSONAGENS PRINCIPAIS (MANTENHA CONSISTÊNCIA VISUAL):
-    ${charactersList}
-    ${characterDescriptions}
-    ${chapterSequenceInfo}
-    
-    ESTILO VISUAL ESPECÍFICO:
-    - ESTILO: Desenho animado infantil 2D com linhas pretas fortes e bem definidas
-    - CORES: Paleta limitada (4-5 cores) de cores vibrantes, contrastantes e consistentes
-    - TRAÇO: Contornos grossos e pretos que destacam claramente todos os elementos
-    - PROPORÇÕES: Cabeças grandes com olhos expressivos (estilo cartoon infantil)
-    - FUNDO: Extremamente simplificado, sem detalhes desnecessários que distraiam do tema central
-    
-    REGRAS ESTRITAS DE GERAÇÃO (CRÍTICAS PARA QUALIDADE):
-    1. CONSISTÊNCIA: Os personagens DEVEM manter a mesma aparência física, roupas e cores ao longo de todas as ilustrações
-    2. RELEVÂNCIA: Cada elemento DEVE relacionar-se diretamente ao texto e à temática do capítulo
-    3. SIMPLICIDADE: Use composição limpa com 2-3 elementos principais no máximo
-    4. ADEQUAÇÃO: Arte feita especificamente para crianças de ${options.ageGroup || "6-8"} anos
-    5. COMPOSIÇÃO: Elementos centrais devem ocupar a maior parte da ilustração (70%)
-    
-    ABSOLUTAMENTE PROIBIDO:
-    - NÃO adicione elementos aleatórios não mencionados no texto
-    - NÃO use estilos realistas ou fotorrealistas em NENHUM elemento
-    - NÃO use sombreamento complexo ou efeitos 3D
-    - NÃO mude a aparência básica dos personagens (cores, roupas, características distintivas)
-    - NÃO crie cenas com muitos detalhes ou elementos secundários
-    
-    A CONSISTÊNCIA VISUAL DOS PERSONAGENS ENTRE TODAS AS ILUSTRAÇÕES É A PRIORIDADE MÁXIMA.
-    PREFIRA ERRAR POR SIMPLICIDADE DO QUE POR COMPLEXIDADE.
-  `;
-  
-  return generateImage(scenePrompt, {
-    ...options,
-    style: "cartoon",
-    mood: options.mood || "adventure",
-    textOnly: options.textOnly
-  }, userTier);
-}
-
-// Função auxiliar para extrair elementos-chave do texto do capítulo
-function extractKeyElements(content: string, title: string): string[] {
-  // Lista de palavras-chave que provavelmente são elementos visuais importantes
-  const visualElementKeywords = [
-    'animal', 'árvore', 'floresta', 'casa', 'castelo', 'rio', 'mar', 'montanha',
-    'céu', 'lago', 'campo', 'cidade', 'rua', 'parque', 'escola', 'quarto', 'sala',
-    'jardim', 'praia', 'caminho', 'ponte', 'porta', 'janela', 'sol', 'lua', 'estrela',
-    'nuvem', 'chuva', 'neve', 'dia', 'noite', 'carro', 'bicicleta', 'barco', 'trem',
-    'brinquedo', 'livro', 'bola', 'cadeira', 'mesa', 'cama', 'roupa', 'chapéu', 'comida',
-    'fruta', 'água', 'fogo', 'planta', 'flor', 'grama',
-    // Adicionados mais elementos comuns em histórias infantis brasileiras
-    'mato', 'bicho', 'caverna', 'poço', 'rio', 'trilha', 'mochila', 'lanterna',
-    'fazenda', 'sítio', 'chácara', 'quintal', 'balanço', 'escorregador', 'pipa',
-    'bola', 'futebol', 'boneca', 'carrinho', 'lápis', 'desenho', 'pintura'
-  ];
-  
-  // Normaliza o texto para facilitar a busca por correspondências
-  const normalizedContent = content.toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // Remove acentos
-  
-  // Construir elementos-chave a partir do título
-  const elements = [
-    `Cena principal do capítulo "${title}"`
-  ];
-  
-  // Adicionar personagens que parecem importantes
-  const sentences = content.split(/[.!?]+/);
-  const mentionedNames = new Set<string>();
-  
-  for (const sentence of sentences) {
-    // Buscar nomes próprios (começam com maiúscula)
-    const nameMatches = sentence.match(/\b[A-Z][a-zÀ-ÿ]+\b/g) || [];
-    nameMatches.forEach(name => {
-      // Filtrar possíveis falsos positivos (palavras no início da frase)
-      if (sentence.trim().startsWith(name)) {
-        // Verificar se a palavra antes ou depois é um indicador de nome próprio
-        const prevNextWords = sentence.match(new RegExp(`(\\w+\\s+)?${name}(\\s+\\w+)?`, 'i'));
-        if (prevNextWords && prevNextWords[0]) {
-          const context = prevNextWords[0].toLowerCase();
-          // Verificar se parece ser realmente um nome próprio
-          if (!context.includes('quando') && !context.includes('porque') && 
-              !context.includes('então') && !context.includes('depois')) {
-            mentionedNames.add(name);
-          }
-        }
-      } else {
-        // Se não está no início da frase, é mais provável ser um nome próprio
-        mentionedNames.add(name);
-      }
+    // Gerar a imagem com o prompt aprimorado
+    const imageUrl = await aiProviderManager.generateImage({
+      prompt: enhancedPrompt,
+      n: 1,
+      size: imageSize,
+      storyId,
+      chapterId,
+      ageGroup,
+      style,
+      mood,
+      characterDescriptions
     });
-  }
-  
-  // Identificar elementos visuais específicos do texto
-  const visualElements = new Set<string>();
-  visualElementKeywords.forEach(keyword => {
-    // Buscar a palavra-chave e incluir contexto (palavra anterior e posterior)
-    const keywordRegex = new RegExp(`\\b(\\w+\\s+)?${keyword}(\\s+\\w+)?\\b`, 'gi');
-    const matches = content.match(keywordRegex) || [];
     
-    matches.forEach(match => {
-      // Limpar e adicionar o elemento visual detectado
-      const cleanElement = match.trim().toLowerCase();
-      if (cleanElement.length > 3) { // Evitar elementos muito curtos
-        visualElements.add(cleanElement);
-      }
-    });
-  });
-  
-  // Extrair 3-4 frases curtas que descrevem a cena principal, com preferência para frases com elementos visuais
-  let bestSentences = sentences
-    .filter(s => s.length > 10 && s.length < 100) // Sentenças de tamanho médio
-    .filter(s => {
-      const normalizedS = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      return visualElementKeywords.some(keyword => normalizedS.includes(keyword.toLowerCase()));
-    })
-    .slice(0, 4);
-  
-  // Adicionar personagens e frases relevantes aos elementos
-  if (mentionedNames.size > 0) {
-    elements.push(`Personagens visíveis na cena: ${Array.from(mentionedNames).join(", ")}`);
-  }
-  
-  // Adicionar elementos visuais específicos identificados
-  if (visualElements.size > 0) {
-    const topVisualElements = Array.from(visualElements).slice(0, 5);
-    elements.push(`Elementos específicos da cena: ${topVisualElements.join(", ")}`);
-  }
-  
-  // Adicionar frases descritivas relevantes
-  bestSentences.forEach(sentence => {
-    const cleanSentence = sentence.trim();
-    if (cleanSentence) {
-      // Verificar se a frase parece descrever uma cena visual
-      if (visualElementKeywords.some(keyword => cleanSentence.toLowerCase().includes(keyword))) {
-        elements.push(`Cena descrita: ${cleanSentence}`);
+    // Atualizar descrições visuais dos personagens
+    if (characterNames.length > 0 && imageUrl) {
+      try {
+        // Preparar as atualizações para cada personagem
+        const characterUpdates = characterNames.map(name => ({
+          name,
+          imageUrl,
+          chapterId,
+          description: promptEnhancer.extractCharacterDescription(name, chapterContent)
+        }));
+        
+        // Atualizar o serviço de consistência
+        characterConsistencyService.updateCharacterVisuals(storyId, characterUpdates);
+        logger.debug(`Atualizadas descrições visuais para ${characterNames.length} personagens`);
+      } catch (error) {
+        logger.error('Erro ao atualizar descrições dos personagens:', error);
+        // Não interromper o fluxo por causa de erro na atualização
       }
     }
-  });
-  
-  // Se não temos elementos suficientes, adicionar algumas frases do início do texto
-  if (elements.length < 4) {
-    const firstParagraph = content.split('\n')[0].trim();
-    elements.push(`Cenário principal: ${firstParagraph.substring(0, 100)}`);
+    
+    return { success: true, imageUrl };
+  } catch (error) {
+    logger.error(`Erro ao gerar imagem para capítulo: ${error instanceof Error ? error.message : String(error)}`);
+    
+    // Tentar novamente com provedor diferente em caso de falha
+    try {
+      logger.info('Tentando novamente com provedor alternativo');
+      
+      const fallbackImageUrl = await aiProviderManager.generateImage({
+        prompt: `Ilustração para história infantil "${prompt.substring(0, 100)}..."`,
+        n: 1,
+        size: userTier === 'free' ? '512x512' : '1024x1024',
+        provider: 'fallback'
+      });
+      
+      return { success: true, imageUrl: fallbackImageUrl };
+    } catch (fallbackError) {
+      logger.error(`Falha também no provedor alternativo: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
+      return { 
+        success: false, 
+        error: 'Não foi possível gerar a imagem no momento. Por favor, tente novamente mais tarde.' 
+      };
+    }
   }
-  
-  // Garantir que temos pelo menos 3 elementos
-  while (elements.length < 3) {
-    elements.push(`Elementos visuais simples baseados no título "${title}"`);
+}
+
+/**
+ * Gera uma imagem de personagem baseada em sua descrição
+ * 
+ * @param characterName Nome do personagem
+ * @param characterDescription Descrição do personagem
+ * @param storyId ID da história (para consistência)
+ * @param options Opções adicionais como estilo e faixa etária
+ * @returns URL da imagem gerada e indicador de sucesso
+ */
+export async function generateCharacterImage(
+  characterName: string,
+  characterDescription: string,
+  storyId: number,
+  options: {
+    ageGroup?: string;
+    style?: string;
+    mood?: string;
+  } = {}
+): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
+  try {
+    // Valores padrão seguros
+    const ageGroup = options.ageGroup || '6-8';
+    const style = options.style || 'cartoon'; // Cartoon é mais adequado para personagens
+    const mood = options.mood || 'happy'; // Personagens geralmente aparecem com expressão feliz
+    
+    // Usar o prompt enhancer para criar um prompt melhor
+    const enhancedPrompt = promptEnhancer.enhanceCharacterImagePrompt({
+      characterName,
+      characterDescription,
+      ageGroup,
+      style,
+      mood
+    });
+    
+    // Gerar a imagem
+    const imageUrl = await aiProviderManager.generateImage({
+      prompt: enhancedPrompt,
+      n: 1,
+      size: '512x512', // Tamanho padrão para personagens
+      storyId,
+      style,
+      ageGroup,
+      mood
+    });
+    
+    // Atualizar a consistência visual
+    if (imageUrl) {
+      characterConsistencyService.updateCharacterVisuals(storyId, [{
+        name: characterName,
+        imageUrl,
+        description: characterDescription
+      }]);
+    }
+    
+    return { success: true, imageUrl };
+  } catch (error) {
+    logger.error(`Erro ao gerar imagem para personagem: ${error instanceof Error ? error.message : String(error)}`);
+    
+    // Fallback para garantir que sempre retornamos uma imagem
+    try {
+      const fallbackImageUrl = await aiProviderManager.generateImage({
+        prompt: `Personagem de história infantil chamado ${characterName}. ${characterDescription.substring(0, 100)}`,
+        n: 1,
+        size: '512x512',
+        provider: 'fallback'
+      });
+      
+      return { success: true, imageUrl: fallbackImageUrl };
+    } catch (fallbackError) {
+      logger.error(`Falha também no provedor alternativo: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
+      return { 
+        success: false, 
+        error: 'Não foi possível gerar a imagem do personagem. Por favor, tente novamente mais tarde.' 
+      };
+    }
   }
-  
-  return elements;
 }
 
 // Função para gerar áudio a partir de texto (mantém a implementação existente)

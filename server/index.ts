@@ -1,15 +1,20 @@
+import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { setupSecurityMiddleware } from "./middleware/security";
+import { errorMiddleware } from "./services/error-handler";
+import logger from "./services/logger";
+import config from "./config";
 
 async function seedDatabase() {
-  log("Carregando dados iniciais no banco de dados...");
+  logger.info("Carregando dados iniciais no banco de dados...");
   try {
     // Usamos import dinâmico para que o script seja executado apenas quando necessário
     await import("./scripts/seed-database");
-    log("Dados iniciais carregados com sucesso!");
+    logger.info("Dados iniciais carregados com sucesso!");
   } catch (error) {
-    console.error("Erro ao carregar dados iniciais:", error);
+    logger.error("Erro ao carregar dados iniciais", error);
   }
 }
 
@@ -17,6 +22,10 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Aplicar middlewares de segurança
+setupSecurityMiddleware(app);
+
+// Middleware de logging de requisições HTTP
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -31,16 +40,28 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      const context = {
+        method: req.method,
+        path,
+        statusCode: res.statusCode,
+        duration,
+        userAgent: req.headers['user-agent'],
+        contentLength: res.getHeader('content-length'),
+        ...(req.user ? { userId: (req.user as any).id } : {}),
+      };
+
+      if (capturedJsonResponse && !path.includes('/auth/')) {
+        context['response'] = capturedJsonResponse;
       }
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
+      // Log apropriado baseado no código de status
+      if (res.statusCode >= 500) {
+        logger.error(`${req.method} ${path} ${res.statusCode} em ${duration}ms`, context);
+      } else if (res.statusCode >= 400) {
+        logger.warn(`${req.method} ${path} ${res.statusCode} em ${duration}ms`, context);
+      } else {
+        logger.http(`${req.method} ${path} ${res.statusCode} em ${duration}ms`, context);
       }
-
-      log(logLine);
     }
   });
 
@@ -53,13 +74,8 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
+  // Middleware de tratamento de erros centralizado
+  app.use(errorMiddleware);
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
@@ -73,12 +89,12 @@ app.use((req, res, next) => {
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
+  const port = config.app.port;
+  server.listen(port, () => {
+    logger.info(`Servidor inicializado na porta ${port}`, {
+      port,
+      environment: config.app.env,
+      nodeVersion: process.version
+    });
   });
 })();

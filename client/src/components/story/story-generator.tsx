@@ -51,7 +51,31 @@ const StoryGenerator = ({ initialAgeGroup = "6-8" }: StoryFormProps) => {
         title: "História criada com sucesso!",
         description: "Preparando sua história...",
       });
-      navigate(`/story/read/${data.id}`);
+      
+      // Adicionar um tempo para garantir que a história foi completamente processada
+      setTimeout(() => {
+        if (data && (typeof data.id === 'number' || typeof data.id === 'string')) {
+          console.log("Navegando para a história com ID:", data.id);
+          navigate(`/story/read/${data.id}`);
+        } else {
+          console.error("ID da história não disponível na resposta:", JSON.stringify(data));
+          toast({
+            title: "Erro ao navegar",
+            description: "História criada, mas não foi possível navegar automaticamente para a leitura.",
+            variant: "destructive",
+          });
+          
+          // Tentar extrair o ID por inspeção do objeto
+          const possibleId = data?.id || data?._id || (typeof data === 'object' ? Object.values(data).find(val => typeof val === 'number') : null);
+          
+          if (possibleId) {
+            console.log("Tentando navegar com ID alternativo:", possibleId);
+            setTimeout(() => {
+              navigate(`/story/read/${possibleId}`);
+            }, 500);
+          }
+        }
+      }, 800);
     },
     onError: (error) => {
       console.error("Error generating story:", error);

@@ -1,5 +1,6 @@
 import { CharacterDescription } from './ai-providers/types';
 import { storage } from '../storage';
+import logger from './logger';
 
 /**
  * Serviço para gerenciar a consistência visual de personagens entre capítulos
@@ -10,8 +11,47 @@ class CharacterConsistencyService {
   // Cache em memória para as descrições de personagens por história
   private characterCache: Map<number, Map<string, CharacterDescription>> = new Map();
   
+  // Listas de termos para extração de atributos visuais
+  private readonly colorList = [
+    'vermelho', 'azul', 'verde', 'amarelo', 'laranja', 'roxo', 'rosa', 'marrom', 
+    'preto', 'branco', 'cinza', 'dourado', 'prateado', 'bege', 'turquesa', 
+    'magenta', 'lilás', 'violeta', 'ciano', 'coral', 'carmesim', 'escarlate', 
+    'índigo', 'ocre', 'púrpura', 'âmbar', 'bordô', 'terracota', 'esmeralda', 
+    'safira', 'rubi', 'jade', 'lima', 'oliva', 'aqua', 'vinho', 'chocolate'
+  ];
+  
+  private readonly clothingList = [
+    'chapéu', 'boné', 'coroa', 'tiara', 'óculos', 'cachecol', 'lenço',
+    'camiseta', 'camisa', 'blusa', 'casaco', 'jaqueta', 'manto', 'capa',
+    'calça', 'shorts', 'saia', 'vestido', 'macacão', 'jardineira',
+    'sapato', 'bota', 'tênis', 'sandália', 'chinelo',
+    'gravata', 'laço', 'pulseira', 'colar', 'brinco', 'anel',
+    'bolsa', 'mochila', 'luva', 'máscara', 'capacete', 'armadura',
+    'uniforme', 'pijama', 'fantasia', 'avental', 'colete', 'suspensório'
+  ];
+  
+  private readonly featuresList = [
+    // Características físicas
+    'alto', 'baixo', 'magro', 'forte', 'gordo', 'atlético',
+    // Cabelo
+    'cabelo cacheado', 'cabelo liso', 'cabelo curto', 'cabelo longo', 'cabelo espetado',
+    'franja', 'careca', 'topete', 'tranças', 'rabo de cavalo', 'coque',
+    // Rosto
+    'barba', 'bigode', 'óculos', 'monóculo', 'sardas', 'cicatriz', 'pinta',
+    'sobrancelhas grossas', 'cílios longos', 'nariz grande', 'nariz pequeno',
+    'bochecha', 'queixo', 'rosto redondo', 'rosto fino', 'orelhas grandes',
+    // Expressões
+    'sorridente', 'sério', 'bravo', 'triste', 'surpreso', 'assustado', 'animado',
+    // Acessórios
+    'coroa', 'varinha', 'cetro', 'cajado', 'espada', 'escudo', 'arco', 'flecha',
+    'colar', 'amuleto', 'pingente', 'anel', 'bracelete', 'pulseira', 'brinco',
+    // Características especiais
+    'asas', 'cauda', 'chifres', 'mágico', 'brilhante', 'luminoso', 'mecânico',
+    'robótico', 'metálico', 'peludo', 'escamoso', 'listrado', 'pintado', 'manchado'
+  ];
+  
   constructor() {
-    console.log('Character Consistency Service initialized');
+    logger.info('Character Consistency Service initialized');
   }
   
   /**
@@ -31,7 +71,7 @@ class CharacterConsistencyService {
     const story = await storage.getStory(storyId);
     
     if (!story) {
-      console.warn(`Story ID ${storyId} not found for character consistency service`);
+      logger.warn(`Story ID ${storyId} not found for character consistency service`);
       return [];
     }
     
@@ -64,15 +104,21 @@ class CharacterConsistencyService {
           appearance: matchedCharacter.description,
           visualAttributes: this.extractVisualAttributes(matchedCharacter.description)
         };
+        
+        logger.debug(`Character '${characterName}' matched with database character '${matchedCharacter.name}'`);
       } else {
         // Se não encontrou no banco, criar uma descrição genérica
         characterDescription = {
           name: characterName,
           appearance: `Um personagem chamado ${characterName}`,
           visualAttributes: {
-            colors: this.generateConsistentColors(characterName)
+            colors: this.generateConsistentColors(characterName),
+            clothing: '',
+            distinguishingFeatures: []
           }
         };
+        
+        logger.debug(`Character '${characterName}' not found in database, using generated description`);
       }
       
       // Armazenar no cache
@@ -100,7 +146,7 @@ class CharacterConsistencyService {
     }
     
     const storyCache = this.characterCache.get(storyId)!;
-    console.log(`Atualizando descrições visuais para ${characterUpdates.length} personagens na história ${storyId}`);
+    logger.info(`Atualizando descrições visuais para ${characterUpdates.length} personagens na história ${storyId}`);
     
     for (const update of characterUpdates) {
       if (!update.name) continue;
@@ -113,12 +159,12 @@ class CharacterConsistencyService {
           name: currentDesc.name,
           appearance: currentDesc.appearance,
           visualAttributes: currentDesc.visualAttributes ? { 
-            colors: [...currentDesc.visualAttributes.colors],
+            colors: [...(currentDesc.visualAttributes.colors || [])],
             clothing: currentDesc.visualAttributes.clothing || '',
             distinguishingFeatures: currentDesc.visualAttributes.distinguishingFeatures ? 
               [...currentDesc.visualAttributes.distinguishingFeatures] : []
           } : {
-            colors: ['azul', 'vermelho'], // cores padrão
+            colors: this.generateConsistentColors(update.name),
             clothing: '',
             distinguishingFeatures: []
           },
@@ -140,6 +186,8 @@ class CharacterConsistencyService {
             updatedDesc.previousImages = updatedDesc.previousImages.slice(-3);
           }
           
+          logger.debug(`Added image for character ${update.name}, now has ${updatedDesc.previousImages.length} images`);
+          
           // Adicionar à lista de aparições em capítulos
           if (!updatedDesc.chapterAppearances) {
             updatedDesc.chapterAppearances = [];
@@ -158,6 +206,8 @@ class CharacterConsistencyService {
               imageUrl: update.imageUrl,
               description: update.description || updatedDesc.chapterAppearances[existingAppearanceIndex].description
             };
+            
+            logger.debug(`Updated existing chapter appearance ${chapterId} for character ${update.name}`);
           } else {
             // Adicionar nova entrada
             updatedDesc.chapterAppearances.push({
@@ -165,98 +215,91 @@ class CharacterConsistencyService {
               imageUrl: update.imageUrl,
               description: update.description
             });
-          }
-        }
-        
-        // Atualizar com uma nova descrição, se fornecida
-        if (update.description) {
-          // Extrair atributos visuais da nova descrição
-          const extractedAttributes = this.extractVisualAttributes(update.description);
-          
-          // Garantir que o objeto visualAttributes existe
-          if (!updatedDesc.visualAttributes) {
-            updatedDesc.visualAttributes = {
-              colors: ['azul', 'vermelho'],
-              clothing: '',
-              distinguishingFeatures: []
-            };
-          }
-          
-          // Mesclar cores (remover duplicatas)
-          const combinedColors = [
-            ...updatedDesc.visualAttributes.colors,
-            ...(extractedAttributes?.colors || [])
-          ].filter((color, index, self) => self.indexOf(color) === index);
-          
-          updatedDesc.visualAttributes.colors = combinedColors;
-          
-          // Atualizar roupa se a nova descrição tiver essa informação
-          if (extractedAttributes?.clothing && extractedAttributes.clothing.length > 0) {
-            updatedDesc.visualAttributes.clothing = extractedAttributes.clothing;
-          }
-          
-          // Mesclar características distintivas
-          if (extractedAttributes?.distinguishingFeatures && extractedAttributes.distinguishingFeatures.length > 0) {
-            const combinedFeatures = [
-              ...(updatedDesc.visualAttributes.distinguishingFeatures || []),
-              ...extractedAttributes.distinguishingFeatures
-            ].filter((feature, index, self) => self.indexOf(feature) === index);
             
-            updatedDesc.visualAttributes.distinguishingFeatures = combinedFeatures;
+            logger.debug(`Added new chapter appearance ${chapterId} for character ${update.name}`);
           }
         }
         
-        // Atualizar no cache
+        // Se foi fornecida uma nova descrição, extrair atributos visuais atualizados
+        if (update.description && update.description.length > 10) {
+          const newVisualAttributes = this.extractVisualAttributes(update.description);
+          
+          // Manter cores existentes se novas não foram encontradas
+          if (newVisualAttributes.colors.length === 0 && updatedDesc.visualAttributes?.colors?.length > 0) {
+            newVisualAttributes.colors = updatedDesc.visualAttributes.colors;
+          }
+          
+          // Se já temos roupas definidas e a nova descrição não menciona roupas, manter as anteriores
+          if (!newVisualAttributes.clothing && updatedDesc.visualAttributes?.clothing) {
+            newVisualAttributes.clothing = updatedDesc.visualAttributes.clothing;
+          }
+          
+          // Combinar características distintivas, removendo duplicatas
+          const allFeatures = [
+            ...(updatedDesc.visualAttributes?.distinguishingFeatures || []),
+            ...(newVisualAttributes.distinguishingFeatures || [])
+          ];
+          
+          // Remover duplicatas
+          newVisualAttributes.distinguishingFeatures = Array.from(new Set(allFeatures));
+          
+          // Sobrescrever atributos visuais com valores mesclados
+          updatedDesc.visualAttributes = newVisualAttributes;
+          
+          logger.debug(`Updated visual attributes for character ${update.name} from new description`);
+        }
+        
+        // Armazenar de volta no cache
         storyCache.set(update.name, updatedDesc);
+      } else {
+        // Se o personagem não existir no cache, criar uma nova entrada
+        const newCharacter: CharacterDescription = {
+          name: update.name,
+          appearance: update.description || `Um personagem chamado ${update.name}`,
+          visualAttributes: {
+            colors: this.generateConsistentColors(update.name),
+            clothing: '',
+            distinguishingFeatures: []
+          },
+          previousImages: update.imageUrl ? [update.imageUrl] : [],
+          chapterAppearances: update.imageUrl && update.chapterId ? [{
+            chapterId: update.chapterId,
+            imageUrl: update.imageUrl,
+            description: update.description
+          }] : []
+        };
+        
+        // Se foi fornecida uma descrição, extrair atributos visuais
+        if (update.description && update.description.length > 10) {
+          newCharacter.visualAttributes = this.extractVisualAttributes(update.description);
+        }
+        
+        // Armazenar no cache
+        storyCache.set(update.name, newCharacter);
+        
+        logger.debug(`Created new character entry for ${update.name}`);
       }
     }
   }
   
   /**
-   * Extrai atributos visuais importantes de uma descrição textual
+   * Extrai atributos visuais de uma descrição de texto
+   * 
+   * @param description Descrição do personagem
+   * @returns Atributos visuais extraídos da descrição
    */
   private extractVisualAttributes(description: string): CharacterDescription['visualAttributes'] {
     const colors: string[] = [];
     const clothing: string[] = [];
     const features: string[] = [];
     
-    // Lista expandida de cores comuns para procurar (incluindo variações e compostos)
-    const colorList = [
-      'vermelho', 'azul', 'verde', 'amarelo', 'laranja', 
-      'roxo', 'rosa', 'marrom', 'preto', 'branco', 
-      'cinza', 'dourado', 'prateado', 'colorido',
-      'azul-claro', 'verde-claro', 'vermelho-escuro', 'azul-escuro',
-      'turquesa', 'violeta', 'magenta', 'ciano', 'lima', 
-      'bege', 'creme', 'castanho', 'lilás', 'índigo',
-      'esmeralda', 'púrpura', 'carmesim', 'escarlate', 'âmbar'
-    ];
-    
-    // Lista expandida de peças de roupa
-    const clothingList = [
-      'chapéu', 'boné', 'camiseta', 'camisa', 'calça',
-      'shorts', 'vestido', 'saia', 'jaqueta', 'casaco',
-      'macacão', 'uniforme', 'gravata', 'lenço', 'cachecol',
-      'luvas', 'meias', 'botas', 'sapatos', 'sandálias',
-      'pijama', 'capa', 'manto', 'colete', 'túnica',
-      'bermuda', 'blusa', 'moletom', 'suéter', 'gorro'
-    ];
-    
-    // Lista expandida de características distintivas
-    const featuresList = [
-      'óculos', 'barba', 'bigode', 'cicatriz', 'tatuagem',
-      'asas', 'cauda', 'chifres', 'penas', 'escamas',
-      'mochila', 'bengala', 'bolsa', 'coroa', 'espada',
-      'cabelo longo', 'cabelo curto', 'cabelo cacheado', 'cabelo liso',
-      'orelhas pontudas', 'rabo de cavalo', 'tranças', 'coque',
-      'sardas', 'pintinhas', 'manchas', 'listras', 'bolinhas',
-      'brinco', 'colar', 'pulseira', 'anel', 'relógio'
-    ];
-    
-    // Normalizar descrição
-    const normalizedDesc = description.toLowerCase();
+    // Normalizar texto para busca
+    const normalizedDesc = description.toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, ""); // Remover acentos
     
     // Procurar por cores (busca mais inteligente)
-    for (const color of colorList) {
+    for (const color of this.colorList) {
       // Verificar se a palavra completa existe na descrição
       const colorRegex = new RegExp(`\\b${color}\\b`, 'i');
       if (colorRegex.test(normalizedDesc)) {
@@ -265,7 +308,7 @@ class CharacterConsistencyService {
     }
     
     // Procurar por peças de roupa
-    for (const item of clothingList) {
+    for (const item of this.clothingList) {
       // Verificar item individual e possíveis plurais
       const clothingRegex = new RegExp(`\\b${item}(s)?\\b`, 'i');
       if (clothingRegex.test(normalizedDesc)) {
@@ -274,7 +317,7 @@ class CharacterConsistencyService {
     }
     
     // Procurar por características distintivas
-    for (const feature of featuresList) {
+    for (const feature of this.featuresList) {
       // Busca mais flexível para características
       if (normalizedDesc.includes(feature)) {
         features.push(feature);
@@ -312,9 +355,13 @@ class CharacterConsistencyService {
       }
     }
     
+    // Criar um string de descrição de roupas se encontrado várias peças
+    const clothingDescription = clothing.length > 0 ? clothing.join(', ') : '';
+    
+    // Fornecer atributos visuais padrão se não encontrados
     return {
       colors: colors.length > 0 ? colors : ['azul', 'vermelho'], // cores padrão se não encontrar nenhuma
-      clothing: clothing.length > 0 ? clothing.join(', ') : '',
+      clothing: clothingDescription,
       distinguishingFeatures: features
     };
   }
@@ -323,6 +370,9 @@ class CharacterConsistencyService {
    * Gera cores consistentes baseadas no nome do personagem
    * para garantir que mesmo personagens sem descrição detalhada
    * mantenham aparência consistente
+   * 
+   * @param name Nome do personagem
+   * @returns Array de cores consistentes para o personagem
    */
   private generateConsistentColors(name: string): string[] {
     // Usar o nome como seed para gerar cores consistentes
@@ -344,6 +394,34 @@ class CharacterConsistencyService {
     }
     
     return colors;
+  }
+  
+  /**
+   * Obtém um resumo visual de todos os personagens de uma história
+   * Útil para depuração e monitoramento da consistência
+   * 
+   * @param storyId ID da história
+   * @returns Resumo dos personagens e suas características visuais
+   */
+  getCharacterSummary(storyId: number): any {
+    if (!this.characterCache.has(storyId)) {
+      return { characters: [], message: "Nenhum personagem encontrado para esta história" };
+    }
+    
+    const storyCache = this.characterCache.get(storyId)!;
+    const characters = Array.from(storyCache.values()).map(char => ({
+      name: char.name,
+      appearance: char.appearance,
+      visualAttributes: char.visualAttributes,
+      imagesCount: char.previousImages?.length || 0,
+      chapterAppearances: char.chapterAppearances?.length || 0
+    }));
+    
+    return {
+      characters,
+      storyId,
+      charactersCount: characters.length
+    };
   }
 }
 

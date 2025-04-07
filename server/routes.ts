@@ -22,11 +22,11 @@ import {
   insertReadingSessionSchema  
 } from "@shared/schema";
 import { z } from "zod";
-import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
-import MemoryStore from "memorystore";
+import config from "./config";
+import { setupSessionStore } from "./services/session-service";
 
 // Import API key routes
 import apiKeysRoutes from './routes/api-keys';
@@ -67,18 +67,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   // Configure session
-  const MemoryStoreInstance = MemoryStore(session);
-  app.use(
-    session({
-      secret: "leiturinhabot-secret-key",
-      resave: false,
-      saveUninitialized: false,
-      cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }, // 24 hours
-      store: new MemoryStoreInstance({
-        checkPeriod: 86400000, // 24 hours
-      }),
-    })
-  );
+  await setupSessionStore(app);
 
   // Configure passport
   app.use(passport.initialize());
@@ -397,7 +386,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         chapters: generatedStory.chapters.map(chapter => ({
           title: chapter.title,
           content: chapter.content,
-          // Sem imagePrompt ou imageUrl para modo somente texto
+          imagePrompt: textOnly ? undefined : chapter.imagePrompt,
+          imageUrl: textOnly ? undefined : chapter.imageUrl
         }))
       };
       
