@@ -24,8 +24,8 @@ import AdminDashboard from "@/pages/admin";
 function Router() {
   return (
     <div className="min-h-screen flex flex-col relative">
-      {/* Colorful dots pattern at the top of the entire app */}
-      <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 z-50"></div>
+      {/* Rainbow dots border at the top of the entire app */}
+      <div className="rainbow-dots-border w-full"></div>
       
       {/* Regular routes with header/footer */}
       <Switch>
@@ -41,7 +41,7 @@ function Router() {
         {/* Regular routes */}
         <Route path="*">
           <>
-            <div className="pt-4"> {/* Add padding to account for the ribbon */}
+            <div className="pt-8"> {/* Add padding to account for the rainbow border */}
               <Header />
               <main className="flex-grow">
                 <Switch>

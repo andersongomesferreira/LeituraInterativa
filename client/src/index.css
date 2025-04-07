@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Wix+Madefor+Display:wght@400;500;600;700;800&family=Montserrat:wght@300;400;500;600;700&family=Bubblegum+Sans&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Bubblegum+Sans&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -11,8 +11,9 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    background-color: #f0f8ff;
-    background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%233b82f6' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E");
+    font-family: 'Fredoka', sans-serif;
+    background-color: #f9f9f9;
+    overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -21,157 +22,269 @@
   
   /* Set Bubblegum Sans for all headings */
   .font-heading {
-    font-family: 'Bubblegum Sans', 'Wix Madefor Display', system-ui, sans-serif;
+    font-family: 'Bubblegum Sans', cursive;
   }
-  
-  /* Colorful dots pattern inspired by Storymakery */
-  .rainbow-dots-top {
+}
+
+@layer components {
+  /* Storymakery-inspired rainbow dots border */
+  .rainbow-dots-border {
     position: relative;
+    height: 12px;
+    background-color: white;
+    overflow: hidden;
   }
   
-  .rainbow-dots-top::before {
+  .rainbow-dots-border::before {
     content: "";
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 8px;
-    background: repeating-linear-gradient(
-      to right,
-      #ff5252 0px,
-      #ff5252 8px,
-      #ffb142 8px,
-      #ffb142 16px,
-      #33d9b2 16px,
-      #33d9b2 24px,
-      #34ace0 24px,
-      #34ace0 32px,
-      #706fd3 32px,
-      #706fd3 40px
-    );
-    border-radius: 4px;
-  }
-}
-
-@layer components {
-  /* Disney-inspired button styles */
-  .btn-disney {
-    @apply relative px-6 py-3 font-bold text-white rounded-full shadow-lg transition-all duration-300 overflow-hidden;
-    background: linear-gradient(90deg, #1e88e5, #0d47a1);
-    background-size: 200% auto;
-    border-bottom: 4px solid #0d47a1;
+    height: 12px;
+    background-image: 
+      radial-gradient(circle, #ff5252 40%, transparent 40%), 
+      radial-gradient(circle, #ffb142 40%, transparent 40%), 
+      radial-gradient(circle, #33d9b2 40%, transparent 40%), 
+      radial-gradient(circle, #34ace0 40%, transparent 40%), 
+      radial-gradient(circle, #706fd3 40%, transparent 40%);
+    background-size: 60px 12px;
+    background-position: 0 0, 12px 0, 24px 0, 36px 0, 48px 0;
+    background-repeat: repeat-x;
+    animation: slide 20s linear infinite;
   }
   
-  .btn-disney:hover {
-    background-position: right center;
-    transform: scale(1.05) translateY(-2px);
-    box-shadow: 0 10px 20px rgba(14, 71, 161, 0.2);
+  @keyframes slide {
+    from { background-position: 0 0, 12px 0, 24px 0, 36px 0, 48px 0; }
+    to { background-position: 600px 0, 612px 0, 624px 0, 636px 0, 648px 0; }
   }
   
-  .btn-disney:active {
-    transform: scale(0.98) translateY(0);
-  }
-  
-  /* Disney-inspired secondary button */
-  .btn-disney-secondary {
-    @apply relative px-6 py-3 font-bold text-primary bg-white rounded-full shadow-lg transition-all duration-300 border-2 border-primary;
-  }
-  
-  .btn-disney-secondary:hover {
-    transform: scale(1.05) translateY(-2px);
-    box-shadow: 0 10px 20px rgba(14, 71, 161, 0.1);
-    background-color: #f0f8ff;
-  }
-  
-  /* Card with Disney-style */
-  .card-disney {
-    @apply rounded-3xl bg-white shadow-xl overflow-hidden transition-all duration-300;
-    border: 5px solid #ffffff;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1), 0 1px 8px rgba(0, 0, 0, 0.06);
-  }
-  
-  .card-disney:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 1px 10px rgba(0, 0, 0, 0.1);
-  }
-  
-  /* Common Disney-inspired effects */
-  .magic-text {
-    @apply font-bold;
-    background: linear-gradient(90deg, #1e88e5, #673ab7, #ff4081, #ffc107);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-size: 300% auto;
-    animation: magic-text-animation 5s ease-in-out infinite;
-  }
-  
-  @keyframes magic-text-animation {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-  
-  /* Castle silhouette background */
-  .castle-bg {
-    background-color: #e6f2ff;
-    background-image: url("data:image/svg+xml,%3Csvg width='52' height='26' viewBox='0 0 52 26' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231e88e5' fill-opacity='0.1'%3E%3Cpath d='M10 10c0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6h2c0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6H32c0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6 0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6 0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6h2c0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6z' /%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-  }
-  
-  /* Star pattern background */
-  .stars-bg {
-    background-color: #e6f2ff;
-    background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231e88e5' fill-opacity='0.05'%3E%3Cpath d='M50 50c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10c0 5.523-4.477 10-10 10s-10-4.477-10-10 4.477-10 10-10zM10 10c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10c0 5.523-4.477 10-10 10S0 25.523 0 20s4.477-10 10-10zm10 8c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8zm40 40c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8z' /%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-  }
-  
-  /* Float animation */
-  .float {
-    animation: float 5s ease-in-out infinite;
-  }
-  
-  @keyframes float {
-    0% { transform: translateY(0px) rotate(0deg); }
-    25% { transform: translateY(-10px) rotate(2deg); }
-    50% { transform: translateY(0px) rotate(0deg); }
-    75% { transform: translateY(-5px) rotate(-2deg); }
-    100% { transform: translateY(0px) rotate(0deg); }
-  }
-  
-  /* Sparkle effect for interactive elements */
-  .sparkle {
+  /* Main hero section with sky background */
+  .storymakery-hero {
+    background-color: #67c6e3; /* Sky blue color */
+    padding-top: 4rem;
+    padding-bottom: 4rem;
     position: relative;
     overflow: hidden;
   }
   
-  .sparkle::after {
-    content: "";
+  /* Rainbow arc in hero */
+  .rainbow-arc {
     position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(ellipse at center, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 80%);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.5s;
+    top: 10%;
+    left: 5%;
+    right: 5%;
+    height: 80%;
+    background: linear-gradient(
+      to bottom,
+      rgba(255,0,0,0.08) 0%,
+      rgba(255,165,0,0.08) 16.6%,
+      rgba(255,255,0,0.08) 33.3%,
+      rgba(0,128,0,0.08) 50%,
+      rgba(0,0,255,0.08) 66.6%,
+      rgba(75,0,130,0.08) 83.3%,
+      rgba(238,130,238,0.08) 100%
+    );
+    border-radius: 100% 100% 0 0 / 100% 100% 0 0;
+    z-index: 1;
   }
   
-  .sparkle:hover::after {
-    opacity: 0.2;
-    animation: sparkle-animation 1.5s ease-in-out infinite;
+  /* Cloud shapes */
+  .cloud {
+    background-color: white;
+    border-radius: 50%;
+    position: absolute;
+    opacity: 0.8;
+    z-index: 2;
+    /* Create cloud shape with multiple border radiuses */
+    &::before, &::after {
+      content: "";
+      position: absolute;
+      background-color: white;
+      border-radius: 50%;
+    }
+    &::before {
+      width: 60%;
+      height: 150%;
+      top: -30%;
+      left: 20%;
+    }
+    &::after {
+      width: 40%;
+      height: 100%;
+      top: -20%;
+      right: 15%;
+    }
   }
   
-  @keyframes sparkle-animation {
-    0% { transform: translate(-50%, -50%) rotate(0deg); }
-    100% { transform: translate(-50%, -50%) rotate(360deg); }
+  .cloud-1 {
+    width: 150px;
+    height: 60px;
+    top: 20%;
+    left: 10%;
   }
   
-  /* Bounce animation */
-  .bounce {
-    animation: bounce 2s ease infinite;
+  .cloud-2 {
+    width: 100px;
+    height: 40px;
+    top: 30%;
+    right: 15%;
   }
   
-  @keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-15px); }
+  .cloud-3 {
+    width: 80px;
+    height: 35px;
+    top: 15%;
+    left: 40%;
+  }
+  
+  /* Ground/grass area */
+  .ground {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 80px;
+    background-color: #5dae49; /* Grass green */
+    z-index: 3;
+  }
+  
+  /* Ground/grass decoration */
+  .grass-decoration {
+    position: absolute;
+    bottom: 60px;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background-color: #4d9a3e; /* Darker grass green */
+    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+    z-index: 3;
+  }
+  
+  /* Character illustrations */
+  .character {
+    position: absolute;
+    bottom: 60px; /* Position above grass */
+    z-index: 4;
+  }
+  
+  .character-left {
+    left: 5%;
+    max-width: 150px;
+  }
+  
+  .character-right {
+    right: 5%;
+    max-width: 150px;
+  }
+  
+  /* Floating animation for characters */
+  .float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  @keyframes float {
+    0% { transform: translateY(0) rotate(0deg); }
+    25% { transform: translateY(-10px) rotate(2deg); }
+    50% { transform: translateY(0) rotate(0deg); }
+    75% { transform: translateY(-5px) rotate(-2deg); }
+    100% { transform: translateY(0) rotate(0deg); }
+  }
+  
+  /* Primary button style */
+  .storymakery-button {
+    @apply font-heading font-bold text-white px-6 py-3 rounded-full transition-all duration-300;
+    background-color: #d23a3a; /* Red button like in reference */
+    border-bottom: 4px solid #a02a2a;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    text-transform: uppercase;
+  }
+  
+  .storymakery-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  .storymakery-button:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  }
+  
+  /* Content card style */
+  .storymakery-card {
+    @apply bg-white rounded-2xl overflow-hidden transition-all duration-300;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    border: 5px solid white;
+  }
+  
+  .storymakery-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+  }
+  
+  /* Book display style */
+  .book-display {
+    @apply relative inline-block;
+    perspective: 1000px;
+  }
+  
+  .book {
+    @apply bg-white rounded-lg overflow-hidden;
+    transform: rotateY(10deg);
+    box-shadow: -10px 10px 20px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease;
+  }
+  
+  .book:hover {
+    transform: rotateY(5deg) translateY(-5px);
+  }
+  
+  /* Section titles */
+  .section-title {
+    @apply font-heading text-3xl sm:text-4xl text-center mb-8;
+    color: #2c3e50;
+  }
+  
+  /* Feature items with illustration */
+  .feature-item {
+    @apply flex flex-col items-center text-center mb-8;
+  }
+  
+  .feature-icon {
+    @apply w-16 h-16 mb-4 flex items-center justify-center rounded-full;
+    background-color: #f0f8ff;
+    color: #34ace0;
+  }
+  
+  /* Decorative elements */
+  .sparkle {
+    @apply absolute w-5 h-5;
+    background: radial-gradient(circle, #ffeb3b 0%, rgba(255,235,59,0) 70%);
+    border-radius: 50%;
+    opacity: 0.7;
+    animation: twinkle 3s ease-in-out infinite;
+  }
+  
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.7; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(0.8); }
+  }
+  
+  /* Page section with light background */
+  .storymakery-section {
+    @apply py-16 px-4 relative overflow-hidden;
+    background-color: #f0f8ff;
+  }
+  
+  /* White section */
+  .storymakery-section-white {
+    @apply py-16 px-4 relative overflow-hidden;
+    background-color: white;
+  }
+  
+  /* Logo container */
+  .logo-container {
+    @apply bg-white py-4 px-6 inline-block rounded-xl shadow-lg;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   }
 }
