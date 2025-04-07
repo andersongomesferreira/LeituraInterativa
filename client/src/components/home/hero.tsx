@@ -19,58 +19,93 @@ const Hero = () => {
   });
 
   return (
-    <section className="bg-gradient-to-br from-primary-light via-primary to-secondary pt-16 pb-24 px-4">
-      <div className="container mx-auto max-w-6xl">
+    <section className="relative overflow-hidden pt-16 pb-24 px-4">
+      {/* Background with playful patterns */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 z-0 bubble-bg"></div>
+      
+      {/* Decorative elements */}
+      <div className="absolute top-20 left-10 w-20 h-20 bg-yellow-400/30 rounded-full blur-xl animate-pulse"></div>
+      <div className="absolute bottom-20 right-10 w-32 h-32 bg-blue-400/30 rounded-full blur-xl animate-pulse"></div>
+      <div className="absolute top-40 right-20 w-16 h-16 bg-purple-400/30 rounded-full blur-xl animate-pulse"></div>
+      
+      <div className="container mx-auto max-w-6xl relative z-10">
         <div className="flex flex-col md:flex-row items-center">
-          <div className="md:w-1/2 text-white mb-10 md:mb-0">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold leading-tight mb-6">
-              Histórias mágicas criadas para seu filho
-            </h1>
-            <p className="text-xl mb-8 opacity-90">
-              Personalize aventuras educativas em português com personagens divertidos e temas que seu filho vai adorar.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              {authStatus?.isAuthenticated ? (
+          <div className="md:w-1/2 mb-10 md:mb-0">
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border-2 border-primary/10">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold leading-tight mb-6 text-primary">
+                Histórias <span className="rainbow-text">mágicas</span> para seu filho
+              </h1>
+              <p className="text-xl mb-8 text-gray-700 font-medium">
+                Personalize aventuras educativas em português com personagens divertidos e temas que seu filho vai adorar!
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                {authStatus?.isAuthenticated ? (
+                  <Button 
+                    asChild
+                    className="btn-bouncy bg-gradient-to-r from-primary to-indigo-600 text-white px-8 py-6 rounded-2xl font-heading font-bold text-xl shadow-lg border-b-4 border-indigo-700"
+                  >
+                    <Link href="/story/create">
+                      <div className="flex items-center">
+                        <span className="mr-2">✨</span> 
+                        Criar História
+                      </div>
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button 
+                    asChild
+                    className="btn-bouncy bg-gradient-to-r from-primary to-indigo-600 text-white px-8 py-6 rounded-2xl font-heading font-bold text-xl shadow-lg border-b-4 border-indigo-700"
+                  >
+                    <Link href="/register">
+                      <div className="flex items-center">
+                        <span className="mr-2">✨</span>
+                        Experimente Grátis
+                      </div>
+                    </Link>
+                  </Button>
+                )}
                 <Button 
-                  asChild
-                  className="bg-accent hover:bg-accent-dark text-neutral-800 px-8 py-4 rounded-full font-heading font-bold text-lg transition-colors transform hover:scale-105 shadow-lg"
+                  variant="outline" 
+                  className="btn-bouncy bg-white hover:bg-gray-50 text-primary border-2 border-primary/20 px-8 py-6 rounded-2xl font-heading font-bold text-xl transition-colors flex items-center justify-center shadow-lg"
                 >
-                  <Link href="/story/create">
-                    <a>Criar História</a>
-                  </Link>
+                  <Play className="mr-2 h-6 w-6" /> Ver como funciona
                 </Button>
-              ) : (
-                <Button 
-                  asChild
-                  className="bg-accent hover:bg-accent-dark text-neutral-800 px-8 py-4 rounded-full font-heading font-bold text-lg transition-colors transform hover:scale-105 shadow-lg"
-                >
-                  <Link href="/register">
-                    <a>Experimente Grátis</a>
-                  </Link>
-                </Button>
-              )}
-              <Button variant="outline" className="bg-white hover:bg-neutral-100 text-primary px-8 py-4 rounded-full font-heading font-bold text-lg transition-colors flex items-center justify-center">
-                <Play className="mr-2 h-5 w-5" /> Ver como funciona
-              </Button>
+              </div>
             </div>
           </div>
+          
           <div className="md:w-1/2 relative">
-            <div className="relative z-10">
+            <div className="relative z-10 floating">
+              <div className="absolute -inset-4 bg-white rounded-[2.5rem] shadow-xl transform -rotate-3"></div>
+              <div className="absolute -inset-4 bg-primary/10 rounded-[2.5rem] shadow-xl transform rotate-3"></div>
               <div 
-                className="rounded-2xl shadow-2xl transform rotate-2 animate-[float_3s_ease-in-out_infinite] h-[300px] md:h-[400px]"
+                className="relative rounded-2xl shadow-2xl border-8 border-white overflow-hidden h-[350px] md:h-[450px]"
                 style={{
                   background: "url('https://images.unsplash.com/photo-1512253022256-19f1a62a8c98?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&h=500&q=80') center/cover"
                 }}
               ></div>
             </div>
-            <div className="absolute -bottom-6 -left-6 bg-white p-4 rounded-xl shadow-lg flex items-center animate-[bounce_3s_infinite]">
-              <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center mr-3">
-                <span className="font-bold">1K+</span>
+            
+            {/* Floating badge */}
+            <div className="absolute -bottom-6 -left-6 bg-white p-5 rounded-2xl shadow-xl border-2 border-primary/20 flex items-center floating">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-r from-primary to-indigo-600 text-white flex items-center justify-center mr-3 shadow-lg">
+                <span className="font-bold text-lg">1K+</span>
               </div>
               <div>
-                <div className="font-heading font-bold">+1000 histórias</div>
-                <div className="text-sm text-neutral-500">geradas diariamente</div>
+                <div className="font-heading font-bold text-primary text-lg">+1000 histórias</div>
+                <div className="text-sm text-gray-600">geradas diariamente</div>
               </div>
+            </div>
+            
+            {/* Floating stickers */}
+            <div className="absolute top-10 -right-6 bg-yellow-400 p-3 rounded-full shadow-lg transform rotate-12 floating">
+              <span className="text-2xl">🚀</span>
+            </div>
+            <div className="absolute top-1/2 -right-10 bg-green-400 p-3 rounded-full shadow-lg transform -rotate-6 floating" style={{ animationDelay: "0.5s" }}>
+              <span className="text-2xl">🦁</span>
+            </div>
+            <div className="absolute bottom-20 -right-8 bg-blue-400 p-3 rounded-full shadow-lg transform rotate-3 floating" style={{ animationDelay: "1s" }}>
+              <span className="text-2xl">🌟</span>
             </div>
           </div>
         </div>
