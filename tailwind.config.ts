@@ -5,8 +5,8 @@ export default {
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     fontFamily: {
-      sans: ['Nunito', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-      heading: ['Baloo 2', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      sans: ['Montserrat', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      heading: ['Wix Madefor Display', 'ui-sans-serif', 'system-ui', 'sans-serif'],
     },
     extend: {
       borderRadius: {
@@ -87,6 +87,7 @@ export default {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "spin-slow": "spin 8s linear infinite",
       },
     },
   },

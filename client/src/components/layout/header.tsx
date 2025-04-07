@@ -11,7 +11,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { apiRequest } from "@/lib/queryClient";
-import { ChevronDown, Menu, X, BookOpen, Home, Users, Crown } from "lucide-react";
+import { 
+  ChevronDown, Menu, X, BookOpen, Home, Users, Crown, 
+  Stars, Sparkles, Sun, Bookmark, LogOut, Wand2 as Magic
+} from "lucide-react";
 
 interface User {
   id: number;
@@ -54,73 +57,133 @@ const Header = () => {
   }, [location]);
 
   return (
-    <header className="bg-white shadow-xl border-b-4 border-primary/20">
-      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+    <header className="bg-white relative">
+      {/* Disney castle silhouette at the top */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600"></div>
+      
+      {/* Sparkles background for the header */}
+      <div className="absolute inset-0 stars-bg opacity-10 z-0"></div>
+      
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between relative z-10">
         <div className="flex items-center">
           <Link href="/" className="flex items-center group">
-            <div className="relative h-16 w-16 mr-3 floating">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full transform rotate-3 group-hover:rotate-6 transition-transform duration-300"></div>
-              <div className="absolute inset-0.5 bg-white rounded-full flex items-center justify-center">
-                <span className="text-3xl font-heading rainbow-text">L</span>
+            {/* Disney-inspired logo */}
+            <div className="relative h-16 w-16 mr-3 float sparkle">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-full shadow-lg transform group-hover:scale-105 transition-transform duration-300"></div>
+              <div className="absolute inset-2 bg-white rounded-full flex items-center justify-center shadow-inner">
+                <Sparkles size={24} className="text-blue-600" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center shadow-md bounce" style={{ animationDelay: "0.5s" }}>
+                <span className="text-xs font-bold text-blue-900">✨</span>
               </div>
             </div>
-            <h1 className="text-3xl font-heading font-bold">
-              <span className="text-primary">Leiturinha</span>
-              <span className="text-secondary">Bot</span>
-            </h1>
+            <div>
+              <h1 className="text-3xl font-heading font-bold">
+                <span className="text-primary">Leiturinha</span>
+                <span className="text-yellow-500">Bot</span>
+              </h1>
+              <div className="text-xs font-medium text-blue-500 -mt-1">
+                Histórias Mágicas para Crianças
+              </div>
+            </div>
           </Link>
         </div>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-6">
-          <Link href="/" className="flex items-center px-3 py-2 rounded-full font-heading font-semibold hover:bg-primary/10 transition-colors">
-            <Home size={20} className="mr-1 text-primary" />
-            <span>Início</span>
+        <nav className="hidden md:flex items-center space-x-4">
+          <Link href="/">
+            <div className="flex flex-col items-center px-4 py-2 group">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mb-1 group-hover:bg-blue-200 transition-colors">
+                <Home size={20} className="text-blue-600" />
+              </div>
+              <span className="text-sm font-heading font-semibold text-gray-700 group-hover:text-blue-600">Início</span>
+            </div>
           </Link>
-          <Link href="/story/create" className="flex items-center px-3 py-2 rounded-full font-heading font-semibold hover:bg-primary/10 transition-colors">
-            <BookOpen size={20} className="mr-1 text-primary" />
-            <span>Histórias</span>
+          
+          <Link href="/story/create">
+            <div className="flex flex-col items-center px-4 py-2 group">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mb-1 group-hover:bg-blue-200 transition-colors">
+                <BookOpen size={20} className="text-blue-600" />
+              </div>
+              <span className="text-sm font-heading font-semibold text-gray-700 group-hover:text-blue-600">Histórias</span>
+            </div>
           </Link>
-          <Link href="/subscription/plans" className="flex items-center px-3 py-2 rounded-full font-heading font-semibold hover:bg-primary/10 transition-colors">
-            <Crown size={20} className="mr-1 text-primary" />
-            <span>Planos</span>
+          
+          <Link href="/subscription/plans">
+            <div className="flex flex-col items-center px-4 py-2 group">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mb-1 group-hover:bg-blue-200 transition-colors">
+                <Stars size={20} className="text-blue-600" />
+              </div>
+              <span className="text-sm font-heading font-semibold text-gray-700 group-hover:text-blue-600">Planos</span>
+            </div>
           </Link>
 
           {authStatus?.isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center font-heading font-semibold hover:bg-primary/10 transition-colors rounded-full">
-                  <Users size={20} className="mr-1 text-primary" />
-                  <span>Conta</span>
-                  <ChevronDown className="ml-1 h-4 w-4" />
+                <Button variant="ghost" className="flex flex-col items-center px-4 py-2 hover:bg-transparent">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mb-1 hover:bg-blue-200 transition-colors">
+                    <Users size={20} className="text-blue-600" />
+                  </div>
+                  <span className="text-sm font-heading font-semibold text-gray-700 group-hover:text-blue-600">
+                    Conta
+                  </span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 rounded-xl border-2 border-primary/20 shadow-lg">
-                <DropdownMenuLabel className="font-heading text-lg">Olá, {authStatus.user?.name}!</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="font-heading text-base cursor-pointer hover:bg-primary/10 focus:bg-primary/10 rounded-lg my-1">
-                  <a href="/dashboard/parent" className="w-full flex items-center">
-                    <Users size={18} className="mr-2" />
-                    Perfil dos Pais
-                  </a>
+              <DropdownMenuContent align="end" className="w-64 rounded-2xl border-2 border-blue-100 p-2 shadow-xl">
+                <DropdownMenuLabel className="font-heading text-lg flex items-center text-blue-700 p-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                    <span className="text-blue-600 font-bold">
+                      {authStatus.user?.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <div>Olá, {authStatus.user?.name}!</div>
+                    <div className="text-xs text-blue-500">{authStatus.user?.email}</div>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-blue-100" />
+                <DropdownMenuItem className="font-heading text-base cursor-pointer hover:bg-blue-50 focus:bg-blue-50 rounded-xl my-1 p-3">
+                  <Link href="/dashboard/parent">
+                    <div className="w-full flex items-center">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                        <Users size={16} className="text-blue-600" />
+                      </div>
+                      <span>Perfil dos Pais</span>
+                    </div>
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="font-heading text-base cursor-pointer hover:bg-primary/10 focus:bg-primary/10 rounded-lg my-1">
-                  <a href="/subscription/plans" className="w-full flex items-center">
-                    <Crown size={18} className="mr-2" />
-                    Assinatura
-                  </a>
+                <DropdownMenuItem className="font-heading text-base cursor-pointer hover:bg-blue-50 focus:bg-blue-50 rounded-xl my-1 p-3">
+                  <Link href="/subscription/plans">
+                    <div className="w-full flex items-center">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                        <Crown size={16} className="text-blue-600" />
+                      </div>
+                      <span>Assinatura</span>
+                    </div>
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-500 font-heading text-base cursor-pointer hover:bg-red-50 focus:bg-red-50 rounded-lg my-1">
-                  <X size={18} className="mr-2" />
-                  Sair
+                <DropdownMenuSeparator className="bg-blue-100" />
+                <DropdownMenuItem 
+                  onClick={handleLogout} 
+                  className="font-heading text-base cursor-pointer hover:bg-red-50 focus:bg-red-50 rounded-xl my-1 p-3 text-red-500"
+                >
+                  <div className="w-full flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                      <LogOut size={16} className="text-red-500" />
+                    </div>
+                    <span>Sair</span>
+                  </div>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button asChild className="btn-bouncy bg-gradient-to-r from-primary to-primary-dark text-white px-6 py-2 rounded-full font-heading font-bold shadow-md transition-all">
+            <Button asChild className="btn-disney ml-4">
               <Link href="/login">
-                Entrar
+                <div className="flex items-center">
+                  <Magic size={16} className="mr-2" />
+                  <span>Entrar</span>
+                </div>
               </Link>
             </Button>
           )}
@@ -128,52 +191,80 @@ const Header = () => {
 
         {/* Mobile Menu Button */}
         <button
-          className="md:hidden text-2xl p-2 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+          className="md:hidden p-3 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors text-blue-600"
           aria-label="Menu"
           onClick={toggleMobileMenu}
         >
-          {mobileMenuOpen ? <X /> : <Menu />}
+          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white shadow-lg py-4 px-4 border-t-2 border-primary/10 rounded-b-xl">
-          <nav className="flex flex-col space-y-3">
-            <Link href="/" className="flex items-center font-heading font-semibold hover:bg-primary/10 transition-colors py-3 px-4 rounded-xl">
-              <Home size={20} className="mr-3 text-primary" />
-              Início
+        <div className="md:hidden bg-white py-6 px-4 shadow-2xl border-t border-blue-100 rounded-b-3xl">
+          <nav className="flex flex-col space-y-4">
+            <Link href="/">
+              <div className="flex items-center bg-blue-50 hover:bg-blue-100 transition-colors p-4 rounded-2xl">
+                <div className="w-12 h-12 rounded-full bg-white shadow-md flex items-center justify-center mr-4">
+                  <Home size={24} className="text-blue-600" />
+                </div>
+                <span className="font-heading font-semibold text-blue-800">Início</span>
+              </div>
             </Link>
-            <Link href="/story/create" className="flex items-center font-heading font-semibold hover:bg-primary/10 transition-colors py-3 px-4 rounded-xl">
-              <BookOpen size={20} className="mr-3 text-primary" />
-              Histórias
+            
+            <Link href="/story/create">
+              <div className="flex items-center bg-blue-50 hover:bg-blue-100 transition-colors p-4 rounded-2xl">
+                <div className="w-12 h-12 rounded-full bg-white shadow-md flex items-center justify-center mr-4">
+                  <BookOpen size={24} className="text-blue-600" />
+                </div>
+                <span className="font-heading font-semibold text-blue-800">Histórias</span>
+              </div>
             </Link>
-            <Link href="/subscription/plans" className="flex items-center font-heading font-semibold hover:bg-primary/10 transition-colors py-3 px-4 rounded-xl">
-              <Crown size={20} className="mr-3 text-primary" />
-              Planos
+            
+            <Link href="/subscription/plans">
+              <div className="flex items-center bg-blue-50 hover:bg-blue-100 transition-colors p-4 rounded-2xl">
+                <div className="w-12 h-12 rounded-full bg-white shadow-md flex items-center justify-center mr-4">
+                  <Stars size={24} className="text-blue-600" />
+                </div>
+                <span className="font-heading font-semibold text-blue-800">Planos</span>
+              </div>
             </Link>
+            
             {authStatus?.isAuthenticated ? (
               <>
-                <Link href="/dashboard/parent" className="flex items-center font-heading font-semibold hover:bg-primary/10 transition-colors py-3 px-4 rounded-xl">
-                  <Users size={20} className="mr-3 text-primary" />
-                  Perfil dos Pais
+                <Link href="/dashboard/parent">
+                  <div className="flex items-center bg-blue-50 hover:bg-blue-100 transition-colors p-4 rounded-2xl">
+                    <div className="w-12 h-12 rounded-full bg-white shadow-md flex items-center justify-center mr-4">
+                      <Users size={24} className="text-blue-600" />
+                    </div>
+                    <span className="font-heading font-semibold text-blue-800">Perfil dos Pais</span>
+                  </div>
                 </Link>
+                
                 <button
                   onClick={handleLogout}
-                  className="flex items-center text-left font-heading font-semibold text-red-500 py-3 px-4 rounded-xl hover:bg-red-50"
+                  className="flex items-center bg-red-50 hover:bg-red-100 transition-colors p-4 rounded-2xl w-full"
                 >
-                  <X size={20} className="mr-3" />
-                  Sair
+                  <div className="w-12 h-12 rounded-full bg-white shadow-md flex items-center justify-center mr-4">
+                    <LogOut size={24} className="text-red-500" />
+                  </div>
+                  <span className="font-heading font-semibold text-red-600">Sair</span>
                 </button>
               </>
             ) : (
-              <Link href="/login" className="bg-gradient-to-r from-primary to-primary-dark text-white py-3 px-4 rounded-xl font-heading font-semibold transition-colors text-center flex items-center justify-center">
-                Entrar
+              <Link href="/login">
+                <div className="btn-disney w-full flex items-center justify-center py-4">
+                  <Magic size={20} className="mr-2" />
+                  <span className="font-heading font-bold">Entrar</span>
+                </div>
               </Link>
             )}
           </nav>
         </div>
       )}
+      
+      {/* Bottom border with stars effect */}
+      <div className="h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
     </header>
   );
 };
