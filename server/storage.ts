@@ -23,6 +23,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
+  updateUserByUsername(username: string, user: Partial<InsertUser>): Promise<User | undefined>;
   
   // Child profile methods
   getChildProfile(id: number): Promise<ChildProfile | undefined>;
@@ -295,9 +296,21 @@ export class MemStorage implements IStorage {
     const existingUser = this.users.get(id);
     if (!existingUser) return undefined;
     
-    const updatedUser: User = { ...existingUser, ...user };
+    const updatedUser: User = { 
+      ...existingUser, 
+      ...user,
+      // Permitir atualização do role quando fornecido explicitamente
+      role: user.role !== undefined ? user.role : existingUser.role
+    };
     this.users.set(id, updatedUser);
     return updatedUser;
+  }
+  
+  async updateUserByUsername(username: string, user: Partial<InsertUser>): Promise<User | undefined> {
+    const existingUser = await this.getUserByUsername(username);
+    if (!existingUser) return undefined;
+    
+    return this.updateUser(existingUser.id, user);
   }
   
   async getAllUsers(): Promise<User[]> {

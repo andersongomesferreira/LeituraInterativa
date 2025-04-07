@@ -142,6 +142,19 @@ const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
     }
   };
 
+  // Utilidade para garantir que temos uma URL de imagem válida
+  const ensureValidImageUrl = (imageUrl: any): string => {
+    if (typeof imageUrl === 'string') {
+      return imageUrl;
+    } else if (imageUrl && typeof imageUrl === 'object') {
+      // Tentar extrair a URL do objeto
+      console.log('Objeto de imagem encontrado:', imageUrl);
+      // @ts-ignore
+      return imageUrl.url || imageUrl.imageUrl || imageUrl.src || '';
+    }
+    return 'https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=500&q=80';
+  };
+
   // Determinar qual imagem mostrar na visualização atual
   const getCurrentImage = () => {
     // Se estamos em um capítulo que tem imagem gerada, usamos ela
@@ -155,13 +168,18 @@ const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
         );
         
         if (chapterIndex >= 0 && chapters[chapterIndex].imageUrl) {
-          return chapters[chapterIndex].imageUrl;
+          return ensureValidImageUrl(chapters[chapterIndex].imageUrl);
         }
       }
     }
     
-    // Fallback para a imagem da história ou imagem padrão
-    return story?.imageUrl || 'https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=500&q=80';
+    // Usar a imagem da história
+    if (story?.imageUrl) {
+      return ensureValidImageUrl(story.imageUrl);
+    }
+    
+    // Fallback para imagem padrão
+    return 'https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=500&q=80';
   };
 
   if (isLoading || !story) {
@@ -217,12 +235,17 @@ const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
                   <div className="absolute -top-2 -right-2 bg-accent text-neutral-800 rounded-full w-10 h-10 flex items-center justify-center shadow-md font-bold animate-[wiggle_1s_ease-in-out_infinite]">
                     {currentPage + 1}/{pages.length}
                   </div>
-                  <div
-                    className="w-full h-48 rounded-lg bg-center bg-cover"
-                    style={{
-                      backgroundImage: `url(${getCurrentImage()})`,
-                    }}
-                  ></div>
+                  <div className="w-full h-48 rounded-lg overflow-hidden">
+                    <img 
+                      src={getCurrentImage()}
+                      alt="Ilustração do capítulo"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.error('Erro ao carregar imagem:', getCurrentImage());
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=500&q=80';
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <div className="font-reading text-lg mb-6 leading-relaxed flex-grow">
@@ -379,3 +402,4 @@ const ReadingInterface = ({ storyId, childId }: ReadingInterfaceProps) => {
 };
 
 export default ReadingInterface;
+

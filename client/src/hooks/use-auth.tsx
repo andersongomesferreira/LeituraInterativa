@@ -169,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const user = authData?.isAuthenticated ? authData.user : null;
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.username === 'andersongomes86';
   const isAuthenticated = !!user;
 
   return (

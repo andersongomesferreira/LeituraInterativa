@@ -73,6 +73,19 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(users);
   }
 
+  // Nova função para atualizar usuário por username
+  async updateUserByUsername(username: string, user: Partial<InsertUser>): Promise<User | undefined> {
+    const existingUser = await this.getUserByUsername(username);
+    if (!existingUser) return undefined;
+    
+    const [updatedUser] = await db
+      .update(users)
+      .set(user)
+      .where(eq(users.id, existingUser.id))
+      .returning();
+    return updatedUser;
+  }
+
   // Child profile methods
   async getChildProfile(id: number): Promise<ChildProfile | undefined> {
     const [profile] = await db.select().from(childProfiles).where(eq(childProfiles.id, id));

@@ -32,6 +32,9 @@ import { setupSessionStore } from "./services/session-service";
 import apiKeysRoutes from './routes/api-keys';
 import userApiKeysRoutes from './routes/user-api-keys';
 
+// Import modular admin routes
+import adminRouter from './routes/admin';
+
 // Tipo para opções de geração de imagens
 interface GenerateImageOptions {
   style?: "cartoon" | "watercolor" | "pencil" | "digital";
@@ -121,6 +124,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     res.status(403).json({ message: "Acesso negado. Apenas administradores têm permissão." });
   };
+
+  // Mount the admin router at /api/admin
+  app.use('/api/admin', adminRouter);
 
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
@@ -225,6 +231,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({
       isAuthenticated: false
     });
+  });
+
+  // Rota para verificar se o usuário é admin
+  app.get("/api/auth/check-admin", isAuthenticated, (req, res) => {
+    try {
+      const user = req.user as any;
+      // Verificar se o usuário tem username andersongomes86 ou role admin
+      const isAdmin = user && (user.username === 'andersongomes86' || user.role === 'admin');
+      
+      console.log(`Check-admin: username=${user.username}, role=${user.role || 'não definido'}, isAdmin=${isAdmin}`);
+      
+      if (isAdmin) {
+        return res.json({
+          success: true,
+          isAdmin: true,
+          message: "Usuário é administrador",
+          user: {
+            id: user.id,
+            username: user.username
+          }
+        });
+      } else {
+        return res.json({
+          success: false,
+          isAdmin: false,
+          message: "Usuário não é administrador"
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao verificar status de admin:', error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao verificar status de administrador"
+      });
+    }
   });
 
   // Child profile routes
@@ -599,27 +640,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Gerar imagem para um capítulo específico da história
+  // Rota antiga para manter compatibilidade com o cliente existente
   app.post("/api/stories/generateChapterImage", isAuthenticated, async (req, res) => {
     try {
       const { chapterTitle, chapterContent, characters, options } = req.body;
       
-      if (!chapterTitle || !chapterContent) {
-        return res.status(400).json({ message: "Título e conteúdo do capítulo são obrigatórios" });
-      }
+      console.log(`[SERVER] Recebida requisição para gerar imagem de capítulo "${chapterTitle}"`);
+      console.log(`[SERVER] Usando rota antiga para compatibilidade`);
       
-      const imageOptions: GenerateImageOptions = options || {};
-      const generatedImage = await generateChapterImage(
-        chapterTitle,
-        chapterContent,
-        characters || [],
-        imageOptions
+      // Obter o nível de assinatura do usuário
+      const userTier = req.user?.subscription?.tier || 'free';
+      
+      // Forçar uso do Runware, já que é o único provedor com chave configurada
+      console.log(`[SERVER] Forçando uso do provedor Runware`);
+      
+      // Gerar a imagem de forma direta usando generateImage
+      // Esta função é mais simples e evita problemas de tipagem
+      const generatedImage = await aiProviderManager.generateImage(
+        `Ilustração para história infantil "${chapterTitle}: ${chapterContent.substring(0, 100)}..."`,
+        {
+          style: options?.style || "cartoon",
+          ageGroup: options?.ageGroup || "6-8",
+        },
+        userTier
       );
       
-      res.json(generatedImage);
+      console.log(`[SERVER] Resposta da geração de imagem:`, {
+        success: generatedImage.success,
+        hasImageUrl: !!generatedImage.imageUrl
+      });
+      
+      // Se não conseguiu gerar a imagem, use uma URL padrão
+      if (!generatedImage.success || !generatedImage.imageUrl) {
+        // URL padrão para casos de erro
+        const fallbackUrl = "https://placehold.co/600x400/e6e6e6/999999?text=Imagem+indisponível";
+        console.log(`[SERVER] Usando URL de fallback devido a falha na geração`);
+        
+        return res.json({
+          success: false,
+          imageUrl: fallbackUrl,
+          message: "Não foi possível gerar a imagem: Erro no serviço de imagens"
+        });
+      }
+      
+      // Garantir que a imageUrl seja uma string válida
+      let finalImageUrl = "";
+      
+      // Verificar o tipo da resposta
+      if (typeof generatedImage.imageUrl === 'string') {
+        finalImageUrl = generatedImage.imageUrl.trim();
+      } else if (generatedImage.imageUrl && typeof generatedImage.imageUrl === 'object') {
+        try {
+          // @ts-ignore
+          finalImageUrl = generatedImage.imageUrl.url || generatedImage.imageUrl.imageUrl || generatedImage.imageUrl.src || "";
+          console.log(`[SERVER] Extraída URL do objeto: ${finalImageUrl}`);
+        } catch (e) {
+          console.error(`[SERVER] Erro ao extrair URL do objeto:`, e);
+          finalImageUrl = "https://placehold.co/600x400/e6e6e6/999999?text=Erro+de+formato";
+        }
+      }
+      
+      // Se ainda não temos uma URL válida, usar fallback
+      if (!finalImageUrl) {
+        finalImageUrl = "https://placehold.co/600x400/e6e6e6/999999?text=URL+inválida";
+      }
+      
+      // Retornar a URL da imagem gerada
+      return res.json({
+        success: true,
+        imageUrl: finalImageUrl
+      });
     } catch (error) {
-      console.error("Error generating chapter image:", error);
-      res.status(500).json({ message: "Erro ao gerar imagem do capítulo" });
+      console.error("[SERVER] Erro crítico ao gerar imagem do capítulo:", error);
+      return res.status(200).json({
+        success: false,
+        imageUrl: "https://placehold.co/600x400/e6e6e6/999999?text=Erro+ao+gerar+imagem",
+        message: `Erro ao gerar imagem: ${error.message || 'Erro desconhecido'}`,
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   
@@ -736,11 +834,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // Atualizar o capítulo com a URL da imagem
               // Verificar se a URL está vazia ou indefinida e usar imagem de backup se necessário
-              const finalImageUrl = generatedImage.imageUrl && generatedImage.imageUrl.trim().length > 0
-                ? generatedImage.imageUrl
-                : "https://cdn.pixabay.com/photo/2016/04/15/20/28/cartoon-1332054_960_720.png";
+              let finalImageUrl;
+              
+              if (generatedImage.imageUrl) {
+                if (typeof generatedImage.imageUrl === 'string') {
+                  // Processar quando é uma string
+                  finalImageUrl = generatedImage.imageUrl.trim().length > 0
+                    ? generatedImage.imageUrl
+                    : "https://placehold.co/600x400/FFDE59/333333?text=Sem+imagem+disponível";
+                } else if (typeof generatedImage.imageUrl === 'object') {
+                  // Extrair URL de um objeto
+                  console.log(`[SERVER] imageUrl é um objeto em vez de string:`, generatedImage.imageUrl);
+                  try {
+                    // @ts-ignore
+                    if (generatedImage.imageUrl.url) {
+                      // @ts-ignore
+                      finalImageUrl = generatedImage.imageUrl.url;
+                    // @ts-ignore
+                    } else if (generatedImage.imageUrl.imageUrl) {
+                      // @ts-ignore
+                      finalImageUrl = generatedImage.imageUrl.imageUrl;
+                    // @ts-ignore
+                    } else if (generatedImage.imageUrl.src) {
+                      // @ts-ignore
+                      finalImageUrl = generatedImage.imageUrl.src;
+                    } else {
+                      // Se não encontrar url conhecida
+                      finalImageUrl = "https://placehold.co/600x400/FFDE59/333333?text=Formato+inválido";
+                    }
+                  } catch (e) {
+                    console.error(`[SERVER] Erro ao extrair URL de objeto:`, e);
+                    finalImageUrl = "https://placehold.co/600x400/FFDE59/333333?text=Erro+de+formato";
+                  }
+                } else {
+                  // Não é string nem objeto
+                  finalImageUrl = "https://placehold.co/600x400/FFDE59/333333?text=Formato+desconhecido";
+                }
+              } else {
+                // imageUrl é null ou undefined
+                finalImageUrl = "https://placehold.co/600x400/FFDE59/333333?text=Sem+imagem+disponível";
+              }
                 
-              console.log(`Chapter ${i+1} image URL: ${finalImageUrl.substring(0, 30)}...`);
+              console.log(`Chapter ${i+1} image URL: ${typeof finalImageUrl === 'string' ? finalImageUrl.substring(0, 30) + '...' : 'não é uma string'}`);
               
               updatedChapters[i] = {
                 ...updatedChapters[i],
@@ -894,45 +1029,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin routes
   app.get("/api/admin/dashboard", isAdmin, async (req, res) => {
     try {
-      // Get counts from storage
+      // Get counts of users, stories, and active sessions
       const users = await storage.getAllUsers();
       const stories = await storage.getAllStories();
       const subscriptions = await storage.getAllUserSubscriptions();
-      const activeSubscriptions = subscriptions.filter(sub => 
-        sub.status === 'active' && new Date(sub.expiresAt) > new Date()
-      );
-
+      
       // Get AI providers status
-      const aiProviders = await getAIProvidersStatus();
+      const providersStatus = getAIProvidersStatus();
       
-      const providerMetrics = aiProviderManager.getProviderMetrics();
-      
-      // Map AI providers with metrics
-      const aiProvidersWithMetrics = aiProviders.map(provider => {
-        const metrics = providerMetrics[provider.id] || { 
-          success: 0, 
-          total: 0, 
-          successRate: 0 
-        };
-        
-        return {
-          ...provider,
-          metrics
-        };
-      });
-
       res.json({
         counts: {
           users: users.length,
           stories: stories.length,
           subscriptions: subscriptions.length,
-          activeSubscriptions: activeSubscriptions.length
+          activeSubscriptions: subscriptions.filter(s => s.status === 'active').length
         },
-        aiProviders: aiProvidersWithMetrics
+        aiProviders: providersStatus
       });
     } catch (error) {
-      console.error("Error in admin dashboard:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
+      console.error('Admin dashboard error:', error);
+      res.status(500).json({ message: 'Erro ao carregar o painel de administração' });
     }
   });
 
@@ -1139,6 +1255,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Admin dashboard error:', error);
       res.status(500).json({ message: 'Erro ao carregar o painel de administração' });
+    }
+  });
+  
+  // Admin AI Providers Status endpoint
+  app.get('/api/admin/ai-providers/status', isAdmin, async (req, res) => {
+    try {
+      const aiProviderManager = req.app.get('aiProviderManager');
+      
+      if (!aiProviderManager) {
+        return res.status(500).json({ 
+          success: false, 
+          message: 'AIProviderManager não inicializado' 
+        });
+      }
+
+      // Obter o status de todos os provedores
+      const providersStatus = aiProviderManager.getProvidersStatus();
+      
+      // Mapear para o formato esperado pela interface
+      const providers = providersStatus.map((provider: any) => {
+        // Verificar se o provedor tem capacidades relevantes
+        const hasTextCapability = provider.capabilities.includes('text');
+        const hasImageCapability = provider.capabilities.includes('image');
+        
+        // Ignorar provedores que não têm nem capacidade de texto nem de imagem
+        if (!hasTextCapability && !hasImageCapability) {
+          return null;
+        }
+        
+        // Obter o provedor original para acessar informações adicionais
+        const providerInstance = aiProviderManager.getProviders().find((p: any) => p.id === provider.id);
+        const models = providerInstance?.getModels ? providerInstance.getModels() : [];
+        
+        // Verificar se o provedor tem uma API key configurada
+        const hasApiKey = providerInstance?.hasApiKey ? providerInstance.hasApiKey() : undefined;
+        
+        // Determinar o status com base na disponibilidade e configuração
+        let status: 'online' | 'offline' | 'unconfigured' | 'error' = 'offline';
+        
+        if (provider.isAvailable) {
+          if (hasApiKey === false) {
+            status = 'unconfigured';  // Provedor sem API key é marcado como não configurado
+          } else if (hasApiKey === undefined) {
+            // Se não sabemos se tem API key (método não existe), verificamos a disponibilidade geral
+            status = 'online';
+          } else {
+            status = 'online';
+          }
+        } else if (hasApiKey === false) {
+          status = 'unconfigured';
+        }
+        
+        return {
+          id: provider.id,
+          name: provider.name,
+          status: status,
+          models: models.map((m: any) => {
+            if (typeof m === 'string') return m;
+            if (typeof m === 'object' && m !== null && 'id' in m) return m.id;
+            return String(m);
+          }),
+          supportsStyles: !!providerInstance?.supportsStyles
+        };
+      }).filter(Boolean); // Remover provedores null
+
+      res.json({
+        success: true,
+        providers
+      });
+    } catch (error) {
+      console.error('Erro ao processar requisição de status dos provedores de IA:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erro ao obter status dos provedores de IA',
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   

@@ -49,6 +49,19 @@ const ChapterIllustrations = ({
   const [selectedMood, setSelectedMood] = useState<string>("happy");
   const { toast } = useToast();
 
+  // Utilidade para garantir que temos uma URL de imagem válida
+  const ensureValidImageUrl = (imageUrl: any): string => {
+    if (typeof imageUrl === 'string') {
+      return imageUrl;
+    } else if (imageUrl && typeof imageUrl === 'object') {
+      // Tentar extrair a URL do objeto
+      console.log('Objeto de imagem encontrado:', imageUrl);
+      // @ts-ignore
+      return imageUrl.url || imageUrl.imageUrl || imageUrl.src || '';
+    }
+    return '';
+  };
+
   const generateIllustrationsMutation = useMutation({
     mutationFn: async () => {
       const options: ImageOptions = {
@@ -123,37 +136,78 @@ const ChapterIllustrations = ({
 
       const characterNames = characters.map(char => char.name);
       
-      const response = await apiRequest(
-        "POST",
-        "/api/stories/generateChapterImage",
-        {
-          chapterTitle: chapter.title,
-          chapterContent: chapter.content,
-          characters: characterNames,
-          options
-        }
-      );
+      console.log(`[DEBUG] Iniciando geração de imagem para capítulo "${chapter.title}"`);
+      console.log(`[DEBUG] Enviando requisição para API para o storyId ${storyId} e chapterIndex ${chapterIndex}`);
       
-      return {
-        result: await response.json(),
-        chapterIndex
-      };
+      try {
+        // Usar a nova rota com parâmetros na URL em vez de body
+        const response = await apiRequest(
+          "POST",
+          `/api/stories/generateChapterImage/${storyId}/${chapterIndex}`,
+          {} // Não precisa de body, os parâmetros estão na URL
+        );
+        
+        const responseData = await response.json();
+        console.log(`[DEBUG] Resposta da API de geração de imagem:`, responseData);
+        
+        // Verificar se a resposta contém um objeto imageUrl
+        if (responseData.imageUrl && typeof responseData.imageUrl === 'object') {
+          console.log(`[DEBUG] Campo imageUrl é um objeto:`, responseData.imageUrl);
+        }
+        
+        // Verificar status e códigos de erro
+        if (!responseData.success) {
+          console.error(`[DEBUG] Erro na geração de imagem:`, responseData.error || 'Erro desconhecido');
+          
+          // Se a resposta contiver uma URL de imagem mesmo com success=false, ainda podemos usá-la (é um fallback)
+          if (!responseData.imageUrl) {
+            throw new Error(responseData.message || "Falha ao gerar imagem");
+          }
+        }
+        
+        return {
+          result: responseData,
+          chapterIndex
+        };
+      } catch (error) {
+        console.error(`[DEBUG] Exceção ao chamar API de geração de imagem:`, error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       const { result, chapterIndex } = data;
       
+      console.log(`[DEBUG] Processando resposta para o capítulo ${chapterIndex + 1}:`, result);
+      
+      // Verificar se temos uma imageUrl, mesmo se success=false (pode ser uma imagem de fallback)
       if (result.imageUrl) {
+        console.log(`[DEBUG] Tipo de imageUrl:`, typeof result.imageUrl);
+        console.log(`[DEBUG] Conteúdo de imageUrl:`, result.imageUrl);
+        
+        // Determinar a mensagem de toast com base no sucesso
+        const toastTitle = result.success 
+          ? "Ilustração gerada com sucesso" 
+          : "Usando imagem de fallback";
+        const toastDesc = result.success
+          ? `A ilustração para "${chapters[chapterIndex].title}" foi criada.`
+          : `Não foi possível gerar uma ilustração personalizada. Usando uma imagem padrão.`;
+        const toastVariant = result.success ? "default" : "warning";
+        
         toast({
-          title: "Ilustração gerada com sucesso",
-          description: `A ilustração para "${chapters[chapterIndex].title}" foi criada.`,
-          variant: "default",
+          title: toastTitle,
+          description: toastDesc,
+          variant: toastVariant as any,
         });
         
-        // Atualizar o capítulo com a nova imagem
+        // Usar a função utilitária para garantir uma URL válida
+        const imageUrlString = ensureValidImageUrl(result.imageUrl);
+        console.log(`[DEBUG] URL final após processamento:`, imageUrlString);
+        
+        // Atualizar o capítulo com a nova imagem, mesmo se for fallback
         const updatedChapters = [...chapters];
         updatedChapters[chapterIndex] = {
           ...updatedChapters[chapterIndex],
-          imageUrl: result.imageUrl
+          imageUrl: imageUrlString
         };
         
         if (onIllustrationsGenerated) {
@@ -162,7 +216,7 @@ const ChapterIllustrations = ({
       } else {
         toast({
           title: "Erro ao gerar ilustração",
-          description: "Não foi possível criar a ilustração.",
+          description: result.message || "Não foi possível criar a ilustração.",
           variant: "destructive",
         });
       }
@@ -318,6 +372,71 @@ interface ChapterListProps {
 }
 
 const ChapterList = ({ chapters, onGenerateImage, isGenerating }: ChapterListProps) => {
+  // Utilidade para garantir que temos uma URL de imagem válida
+  const ensureValidImageUrl = (imageUrl: any): string => {
+    if (!imageUrl) {
+      console.log('[DEBUG] URL de imagem nula ou indefinida');
+      return 'https://placehold.co/600x400/e6e6e6/999999?text=Sem+imagem+disponível';
+    }
+    
+    if (typeof imageUrl === 'string') {
+      return imageUrl.trim();
+    } else if (typeof imageUrl === 'object') {
+      // Tentar extrair a URL do objeto
+      console.log('[DEBUG] Objeto de imagem encontrado:', imageUrl);
+      try {
+        // Verificar propriedades comuns onde poderia estar a URL
+        const possibleUrls = [
+          imageUrl.url,
+          imageUrl.imageUrl,
+          imageUrl.src,
+          imageUrl.uri,
+          imageUrl.href
+        ];
+        
+        // Usar a primeira URL válida encontrada
+        for (const url of possibleUrls) {
+          if (url && typeof url === 'string' && url.trim().length > 0) {
+            console.log('[DEBUG] URL válida encontrada em propriedade:', url);
+            return url.trim();
+          }
+        }
+        
+        // Se chegou aqui, tenta serializar o objeto para verificação
+        const serialized = JSON.stringify(imageUrl);
+        console.log('[DEBUG] Objeto serializado:', serialized);
+        
+        // Tenta encontrar URL no formato de string serializada
+        const urlMatch = serialized.match(/https?:\/\/[^"']+/);
+        if (urlMatch) {
+          console.log('[DEBUG] URL encontrada na serialização:', urlMatch[0]);
+          return urlMatch[0];
+        }
+      } catch (e) {
+        console.error('[DEBUG] Erro ao processar objeto de imagem:', e);
+      }
+      
+      // Fallback para placeholder
+      return 'https://placehold.co/600x400/e6e6e6/999999?text=Formato+inválido';
+    }
+    
+    return 'https://placehold.co/600x400/e6e6e6/999999?text=Sem+imagem+disponível';
+  };
+
+  // Função para lidar com erro de carregamento de imagem
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>, index: number) => {
+    console.error('[DEBUG] Erro ao carregar imagem:', {
+      chapter: chapters[index]?.title,
+      imageUrl: chapters[index]?.imageUrl
+    });
+    
+    // Definir uma imagem de fallback quando a imagem falhar ao carregar
+    e.currentTarget.src = 'https://placehold.co/600x400/e6e6e6/999999?text=Erro+ao+carregar+imagem';
+    
+    // Opcional: você pode querer notificar o componente pai sobre o erro
+    // ou tentar regenerar a imagem automaticamente
+  };
+
   if (chapters.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -329,59 +448,65 @@ const ChapterList = ({ chapters, onGenerateImage, isGenerating }: ChapterListPro
 
   return (
     <div className="grid grid-cols-1 gap-4">
-      {chapters.map((chapter, index) => (
-        <Card key={index} className="overflow-hidden">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-1 bg-accent-light relative min-h-[150px]">
-              {chapter.imageUrl ? (
-                <img 
-                  src={chapter.imageUrl} 
-                  alt={chapter.title}
-                  className="w-full h-full object-cover aspect-square" 
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full bg-accent p-4">
-                  <div className="text-center text-muted-foreground">
-                    <ImageIcon className="mx-auto h-12 w-12 mb-2 opacity-50" />
-                    <p className="text-sm">Sem ilustração</p>
-                  </div>
-                </div>
-              )}
-              {chapter.imageUrl && (
-                <Badge variant="secondary" className="absolute top-2 right-2 bg-green-100 text-green-800">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Gerada
-                </Badge>
-              )}
-            </div>
-            
-            <div className="md:col-span-2 p-4">
-              <h4 className="font-heading font-bold text-lg text-primary mb-2">{chapter.title}</h4>
-              <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
-                {chapter.content.substring(0, 150)}...
-              </p>
-              <Button
-                onClick={() => onGenerateImage(index)}
-                disabled={isGenerating}
-                variant={chapter.imageUrl ? "outline" : "default"}
-                size="sm"
-                className="w-full"
-              >
-                {isGenerating ? (
-                  <>
-                    <LoaderCircle className="mr-2 h-3 w-3 animate-spin" />
-                    Gerando...
-                  </>
-                ) : chapter.imageUrl ? (
-                  "Gerar novamente"
+      {chapters.map((chapter, index) => {
+        // Garantir que temos uma URL válida para a imagem
+        const validImageUrl = ensureValidImageUrl(chapter.imageUrl);
+        
+        return (
+          <Card key={index} className="overflow-hidden">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-1 bg-accent-light relative min-h-[150px]">
+                {validImageUrl ? (
+                  <img 
+                    src={validImageUrl}
+                    alt={chapter.title}
+                    className="w-full h-full object-cover aspect-square" 
+                    onError={(e) => handleImageError(e, index)}
+                  />
                 ) : (
-                  "Gerar ilustração"
+                  <div className="flex items-center justify-center h-full bg-accent p-4">
+                    <div className="text-center text-muted-foreground">
+                      <ImageIcon className="mx-auto h-12 w-12 mb-2 opacity-50" />
+                      <p className="text-sm">Sem ilustração</p>
+                    </div>
+                  </div>
                 )}
-              </Button>
+                {validImageUrl && (
+                  <Badge variant="secondary" className="absolute top-2 right-2 bg-green-100 text-green-800">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Gerada
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="md:col-span-2 p-4">
+                <h4 className="font-heading font-bold text-lg text-primary mb-2">{chapter.title}</h4>
+                <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
+                  {chapter.content.substring(0, 150)}...
+                </p>
+                <Button
+                  onClick={() => onGenerateImage(index)}
+                  disabled={isGenerating}
+                  variant={validImageUrl ? "outline" : "default"}
+                  size="sm"
+                  className="w-full"
+                >
+                  {isGenerating ? (
+                    <>
+                      <LoaderCircle className="mr-2 h-3 w-3 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : validImageUrl ? (
+                    "Gerar novamente"
+                  ) : (
+                    "Gerar ilustração"
+                  )}
+                </Button>
+              </div>
             </div>
-          </div>
-        </Card>
-      ))}
+          </Card>
+        );
+      })}
     </div>
   );
 };

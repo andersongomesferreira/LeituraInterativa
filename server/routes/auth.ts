@@ -4,8 +4,9 @@ import { insertUserSchema } from '@shared/schema';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import passport from 'passport';
-import { authLimiter } from '../middleware/security';
+import { authLimiter, isAuthenticated } from '../middleware/security';
 import config from '../config';
+import logger from '../services/logger';
 
 const router = Router();
 
@@ -44,11 +45,13 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
 
     const user = await storage.createUser({
       ...validatedData,
-      password: hashedPassword
+      password: hashedPassword,
+      role: validatedData.role || 'parent' // Default role
     });
 
     req.login(user, (err) => {
       if (err) {
+        logger.error('Erro ao fazer login após registro', { error: err });
         return res.status(500).json({ 
           success: false,
           message: "Erro ao fazer login" 
@@ -66,12 +69,14 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
+      logger.warn('Dados inválidos no registro', { errors: error.errors });
       return res.status(400).json({ 
         success: false,
         message: "Dados inválidos", 
         errors: error.errors 
       });
     }
+    logger.error('Erro interno ao registrar usuário', { error });
     res.status(500).json({ 
       success: false,
       message: "Erro interno do servidor" 
@@ -83,6 +88,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
 router.post('/login', authLimiter, (req: Request, res: Response) => {
   passport.authenticate("local", (err: any, user: any, info: any) => {
     if (err) {
+      logger.error('Erro na autenticação', { error: err });
       return res.status(500).json({ 
         success: false, 
         message: "Erro interno", 
@@ -91,6 +97,7 @@ router.post('/login', authLimiter, (req: Request, res: Response) => {
     }
     
     if (!user) {
+      logger.warn('Tentativa de login falhou', { username: req.body.username });
       return res.status(401).json({ 
         success: false, 
         message: info?.message || "Credenciais inválidas" 
@@ -99,6 +106,7 @@ router.post('/login', authLimiter, (req: Request, res: Response) => {
     
     req.login(user, (loginErr: any) => {
       if (loginErr) {
+        logger.error('Erro ao iniciar sessão', { error: loginErr });
         return res.status(500).json({ 
           success: false, 
           message: "Erro ao fazer login", 
@@ -112,6 +120,7 @@ router.post('/login', authLimiter, (req: Request, res: Response) => {
       // Salvar sessão explicitamente para garantir que os cookies sejam enviados corretamente
       req.session.save((saveErr: any) => {
         if (saveErr) {
+          logger.error('Erro ao salvar sessão', { error: saveErr });
           return res.status(500).json({
             success: false,
             message: "Erro ao salvar sessão",
@@ -119,6 +128,7 @@ router.post('/login', authLimiter, (req: Request, res: Response) => {
           });
         }
         
+        logger.info('Login bem-sucedido', { userId: user.id, username: user.username });
         return res.status(200).json({
           success: true,
           message: "Login realizado com sucesso",
@@ -131,8 +141,13 @@ router.post('/login', authLimiter, (req: Request, res: Response) => {
 
 // Rota de logout
 router.post('/logout', (req: Request, res: Response) => {
+  if (req.user) {
+    logger.info('Logout iniciado', { userId: (req.user as any).id });
+  }
+  
   req.logout((err) => {
     if (err) {
+      logger.error('Erro ao fazer logout', { error: err });
       return res.status(500).json({ 
         success: false, 
         message: "Erro ao fazer logout", 
@@ -177,6 +192,39 @@ router.get('/status', (req: Request, res: Response) => {
     success: true,
     isAuthenticated: false
   });
+});
+
+// Rota para verificar se o usuário é admin
+router.get('/check-admin', isAuthenticated, (req, res) => {
+  try {
+    const user = req.user as any;
+    // Verificar se o usuário tem username andersongomes86 (versão simplificada de admin)
+    const isAdmin = user && user.username === 'andersongomes86';
+    
+    if (isAdmin) {
+      return res.json({
+        success: true,
+        isAdmin: true,
+        message: "Usuário é administrador",
+        user: {
+          id: user.id,
+          username: user.username
+        }
+      });
+    } else {
+      return res.json({
+        success: false,
+        isAdmin: false,
+        message: "Usuário não é administrador"
+      });
+    }
+  } catch (error) {
+    logger.error('Erro ao verificar status de admin', { error });
+    res.status(500).json({
+      success: false,
+      message: "Erro ao verificar status de administrador"
+    });
+  }
 });
 
 export default router; 

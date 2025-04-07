@@ -20,6 +20,8 @@ import Footer from "@/components/layout/footer";
 
 // Admin pages
 import AdminDashboard from "@/pages/admin";
+import AdminPage from "./routes/AdminPage";
+import AITestImagePage from "./routes/AITestImagePage";
 
 function Router() {
   return (
@@ -37,6 +39,8 @@ function Router() {
         <ProtectedAdminRoute path="/admin/characters-themes" component={AdminDashboard} />
         <ProtectedAdminRoute path="/admin/ai-providers" component={AdminDashboard} />
         <ProtectedAdminRoute path="/admin/api-keys" component={AdminDashboard} />
+        <ProtectedAdminRoute path="/admin/page" component={AdminPage} />
+        <ProtectedAdminRoute path="/admin/ai-test/image" component={AITestImagePage} />
         
         {/* Regular routes */}
         <Route path="*">
@@ -54,6 +58,7 @@ function Router() {
                   <Route path="/story/read/:id" component={ReadStory} />
                   <Route path="/stories/:id" component={ReadStory} />
                   <Route path="/subscription/plans" component={SubscriptionPlans} />
+                  <Route path="/admin-direct" component={AdminPage} />
                   <Route component={NotFound} />
                 </Switch>
               </main>

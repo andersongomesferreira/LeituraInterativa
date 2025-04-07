@@ -305,113 +305,122 @@ export async function generateImage(
   seed?: number;
   generationTime?: number;
 }> {
-  console.log(`Iniciando processo de geração de imagem com estilo: ${options.style || 'cartoon'}`);
-  
   try {
-    // Aprimorar o prompt com base no estilo solicitado
+    logger.info(`Gerando imagem com prompt: "${prompt.substring(0, 50)}..."`);
+    
+    // Sempre forçar HuggingFace como provedor primeiro
+    const forcedProvider = "huggingface";
+    logger.info(`Forçando uso do provedor ${forcedProvider} para geração de imagem`);
+    
+    // Preparar um prompt melhorado com base no estilo solicitado
     let enhancedPrompt = prompt;
+    const style = options.style || "cartoon";
+    const ageGroup = options.ageGroup || "6-8";
     
-    // Adicionar palavras-chave específicas de estilo
-    switch (options.style) {
-      case "cartoon":
-        enhancedPrompt += ", estilo de desenho animado, cores vibrantes, adequado para crianças, ilustração fofa, colorido";
-        break;
-      case "watercolor":
-        enhancedPrompt += ", pintura em aquarela, cores suaves, artístico, ilustração sonhadora";
-        break;
-      case "pencil":
-        enhancedPrompt += ", desenho a lápis, esboço, desenhado à mão, sombreamento suave";
-        break;
-      case "digital":
-        enhancedPrompt += ", arte digital, ilustração moderna, linhas limpas, profissional";
-        break;
+    // Adicionar detalhes de estilo ao prompt para melhorar a geração
+    if (style === "cartoon") {
+      enhancedPrompt += ", colorful cartoon style, child-friendly illustration, digital art";
+    } else if (style === "watercolor") {
+      enhancedPrompt += ", beautiful watercolor painting, soft colors, artistic";
+    } else if (style === "pencil") {
+      enhancedPrompt += ", detailed pencil drawing, sketch style, black and white";
+    } else if (style === "digital") {
+      enhancedPrompt += ", modern digital art, vibrant colors, detailed";
     }
     
-    // Adicionar descrições de personagens ao prompt, se disponíveis
-    if (options.characterDescriptions && options.characterDescriptions.length > 0) {
-      const charDescriptions = options.characterDescriptions
-        .map(char => {
-          let desc = `${char.name}`;
-          if (char.appearance) desc += ` (${char.appearance})`;
-          return desc;
-        })
-        .join(", ");
-      
-      enhancedPrompt += `. Personagens na cena: ${charDescriptions}.`;
+    // Adicionar ajustes baseados na faixa etária
+    if (ageGroup === "3-5") {
+      enhancedPrompt += ", simple shapes, bright colors, very child-friendly, cute characters";
+    } else if (ageGroup === "6-8") {
+      enhancedPrompt += ", colorful, engaging, child-friendly characters, moderate detail";
+    } else if (ageGroup === "9-12") {
+      enhancedPrompt += ", more detailed, adventurous, slightly sophisticated but still appropriate for children";
     }
     
-    console.log(`Prompt aprimorado: "${enhancedPrompt.substring(0, 50)}..."`);
+    // Adicionar especificações de qualidade para o modelo de geração
+    enhancedPrompt += ", high quality, 4k, professional illustration";
     
-    const imageParams: ImageGenerationParams = {
-      prompt: enhancedPrompt,
-      style: options.style || "cartoon",
-      mood: options.mood || "happy",
-      ageGroup: options.ageGroup,
-      seed: options.seed,
-      provider: options.provider,
-      characterDescriptions: options.characterDescriptions,
-      textOnly: options.textOnly === true // Suporte para histórias apenas com texto
-    };
+    logger.debug(`Prompt aprimorado: "${enhancedPrompt.substring(0, 100)}..."`);
     
-    // Usar nosso gerenciador de provedores para escolher o melhor provedor
-    console.log(`Solicitando geração de imagem ao gerenciador de provedores...`);
-    const result = await aiProviderManager.generateImage(imageParams, userTier);
-    
-    // Verificar se temos um resultado bem-sucedido com URL de imagem válida
-    if (result.success && result.imageUrl && result.imageUrl.trim().length > 0) {
-      console.log(`Imagem gerada com sucesso pelo provedor ${result.provider}, tamanho da URL: ${result.imageUrl.length}`);
-      
-      return {
-        success: true,
-        imageUrl: result.imageUrl,
-        base64Image: result.base64Image,
-        isBackup: false,
-        provider: result.provider,
-        model: result.model,
-        generationTime: result.generationTime,
-        seed: result.seed || options.seed,
-        promptUsed: enhancedPrompt,
-        metadata: {
-          providerUsed: result.provider,
-          model: result.model,
-          generationTime: result.generationTime,
-          prompt: enhancedPrompt.substring(0, 100) + "..."
-        }
+    try {
+      // Parâmetros para geração de imagem
+      const imageParams: ImageGenerationParams = {
+        prompt: enhancedPrompt,
+        n: 1,
+        size: userTier === "free" ? "1024x1024" : "1792x1024", 
+        style: style,
+        quality: "standard",
+        provider: forcedProvider,
+        seed: options.seed
       };
-    } else {
-      // Se temos uma URL de imagem, mas success é false, algo deu errado
-      console.warn(`Provedor ${result.provider} retornou resultado malsucedido:`, {
-        success: result.success,
-        error: result.error,
-        hasImageUrl: !!result.imageUrl
-      });
       
-      // Usar uma imagem de placeholder em vez de fallback específico
-      return {
-        success: false,
-        imageUrl: result.imageUrl || "https://placehold.co/600x400/FFDE59/333333?text=Falha+na+geração",
-        isBackup: !result.imageUrl,
-        error: result.error || "Erro desconhecido durante a geração da imagem",
-        provider: result.provider,
-        metadata: {
-          providerUsed: result.provider,
-          error: result.error || "Erro desconhecido",
-          attemptedProviders: result.attemptedProviders
+      // Primeiro, tentar usar o provedor HuggingFace
+      const result = await aiProviderManager.generateImage(imageParams, userTier);
+      
+      if (result.success && result.imageUrl) {
+        logger.info(`Imagem gerada com sucesso pelo HuggingFace`);
+        return {
+          success: true,
+          imageUrl: result.imageUrl,
+          provider: forcedProvider,
+          model: result.model || "stable-diffusion-xl",
+          promptUsed: enhancedPrompt
+        };
+      } else {
+        throw new Error(result.error || "Falha na geração com HuggingFace");
+      }
+    } catch (error: any) {
+      logger.warn(`Erro ao gerar imagem com HuggingFace: ${error.message}. Tentando OpenAI como fallback.`);
+      
+      // Se falhar com HuggingFace, tentar com OpenAI como fallback
+      try {
+        const fallbackParams: ImageGenerationParams = {
+          prompt: enhancedPrompt,
+          n: 1,
+          size: userTier === "free" ? "1024x1024" : "1792x1024",
+          style: style,
+          provider: 'openai'
+        };
+        
+        const fallbackResult = await aiProviderManager.generateImage(fallbackParams, userTier);
+        
+        if (fallbackResult.success && fallbackResult.imageUrl) {
+          logger.info(`Imagem gerada com sucesso pelo OpenAI (fallback)`);
+          return {
+            success: true,
+            imageUrl: fallbackResult.imageUrl,
+            provider: "openai",
+            model: "dall-e-3",
+            promptUsed: enhancedPrompt
+          };
+        } else {
+          throw new Error(fallbackResult.error || "Falha na geração com OpenAI");
         }
-      };
+      } catch (fallbackError: any) {
+        logger.error(`Falha também no provedor fallback: ${fallbackError.message}`);
+        
+        // Se todos os provedores falharem, usar imagem estática de fallback
+        const fallbackUrl = "https://placehold.co/600x400/e6e6e6/999999?text=Imagem+indisponível";
+        logger.warn(`Usando URL de fallback: ${fallbackUrl}`);
+        
+        return {
+          success: false,
+          imageUrl: fallbackUrl,
+          error: `Falha em todos os provedores: ${error.message}`,
+          provider: "fallback-static",
+          model: "none",
+          promptUsed: enhancedPrompt
+        };
+      }
     }
   } catch (error: any) {
-    console.error("Erro no processo de geração de imagem:", error);
-    
-    // Usar uma imagem de placeholder como fallback
+    logger.error(`Erro geral na geração de imagem: ${error.message}`);
     return {
       success: false,
-      imageUrl: "https://placehold.co/600x400/FFDE59/333333?text=Erro+na+geração",
-      isBackup: true,
-      error: error.message || "Erro desconhecido",
-      metadata: {
-        error: error.message || "Erro desconhecido"
-      }
+      imageUrl: "https://placehold.co/600x400/e6e6e6/999999?text=Erro+na+geração",
+      error: error.message || "Erro desconhecido na geração de imagem",
+      provider: "error",
+      model: "none"
     };
   }
 }
@@ -419,17 +428,17 @@ export async function generateImage(
 /**
  * Gera uma imagem para um capítulo de história
  * 
- * @param prompt Prompt para geração de imagem (geralmente obtido do título/conteúdo do capítulo)
- * @param storyId ID da história
- * @param chapterId ID do capítulo (pode ser o índice)
+ * @param promptOrChapterId Prompt para geração de imagem ou ID do capítulo (número)
+ * @param storyIdOrContent ID da história ou conteúdo do capítulo
+ * @param chapterIdOrCharacters ID do capítulo ou array de nomes de personagens
  * @param options Opções adicionais como faixa etária
  * @param userTier Nível de assinatura do usuário
  * @returns URL da imagem gerada e indicador de sucesso
  */
 export async function generateChapterImage(
-  prompt: string,
-  storyId: number,
-  chapterId: number,
+  promptOrChapterId: string | number,
+  storyIdOrContent: number | string,
+  chapterIdOrCharacters: number | string[],
   options: {
     ageGroup?: string;
     style?: string;
@@ -437,28 +446,46 @@ export async function generateChapterImage(
     characters?: string[];
     storyId?: number;
     textOnly?: boolean;
+    forceProvider?: string;
   } = {},
   userTier: string = 'free'
-): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
+): Promise<{ success: boolean; imageUrl?: string; error?: string; provider?: string }> {
   try {
+    // Verificar se estamos usando a versão antiga (strings) ou nova (números) da função
+    const isUsingStringParams = typeof promptOrChapterId === 'string' && typeof storyIdOrContent === 'string';
+    
+    logger.info(`Iniciando geração de imagem para capítulo. Usando formato de parâmetros ${isUsingStringParams ? 'baseado em strings' : 'baseado em IDs'}`);
+    
+    let chapterTitle: string;
+    let chapterContent: string;
+    let characterNames: string[] = [];
+    
+    if (isUsingStringParams) {
+      // Versão antiga: usando strings diretamente
+      chapterTitle = promptOrChapterId as string;
+      chapterContent = storyIdOrContent as string;
+      characterNames = Array.isArray(chapterIdOrCharacters) ? chapterIdOrCharacters : [];
+      
+      logger.info(`Gerando imagem para capítulo com título: "${chapterTitle.substring(0, 30)}..."`);
+    } else {
+      // Versão nova: usando IDs - esta parte seria implementada se tivéssemos um banco de dados
+      // estruturado dessa forma, mas como não temos, usamos um fallback para a versão de strings
+      logger.warn(`Chamada com formato de IDs não totalmente implementada, usando fallback`);
+      const storyId = typeof storyIdOrContent === 'number' ? storyIdOrContent : 0;
+      const chapterId = typeof chapterIdOrCharacters === 'number' ? chapterIdOrCharacters : 0;
+      
+      // Aqui poderíamos buscar os dados do capítulo do banco de dados pelos IDs
+      // Mas como não temos isso implementado, usamos um fallback simplificado
+      chapterTitle = `Capítulo ${chapterId}`;
+      chapterContent = "Conteúdo não disponível por ID";
+      
+      logger.warn(`Usando dados de fallback para storyId ${storyId}, chapterId ${chapterId}`);
+    }
+    
     // Verificar se estamos no modo text-only
     if (options.textOnly) {
       logger.info("Modo texto-only ativado, pulando geração de imagem");
       return { success: true, imageUrl: "" };
-    }
-    
-    // Extrair título e conteúdo do capítulo do prompt
-    const promptParts = prompt.split(':');
-    let chapterTitle = '';
-    let chapterContent = '';
-    
-    if (promptParts.length > 1) {
-      // Formato esperado: "Ilustração para o capítulo "Título": Conteúdo..."
-      const titleMatch = promptParts[0].match(/"([^"]+)"/);
-      chapterTitle = titleMatch ? titleMatch[1] : promptParts[0];
-      chapterContent = promptParts.slice(1).join(':');
-    } else {
-      chapterContent = prompt;
     }
     
     // Determinar a faixa etária e estilo com valores padrão seguros
@@ -467,81 +494,137 @@ export async function generateChapterImage(
     const mood = options.mood || promptEnhancer.detectMood(chapterContent);
     
     // Buscar informações dos personagens para consistência
-    // Extrair possíveis nomes de personagens do conteúdo do capítulo
-    const characterNames = options.characters || 
+    characterNames = options.characters || characterNames || 
       promptEnhancer.extractCharacterNames(chapterContent);
     
-    logger.debug(`Gerando imagem para capítulo ${chapterId} da história ${storyId} com personagens: ${characterNames.join(', ')}`);
-    
-    // Obter descrições de personagens para consistência visual
-    const characterDescriptions = await characterConsistencyService.getCharacterDescriptions(
-      storyId,
-      characterNames
-    );
+    logger.debug(`Gerando imagem para capítulo com título "${chapterTitle}" e personagens: ${characterNames.join(', ')}`);
+    logger.debug(`Parâmetros da geração - Faixa etária: ${ageGroup}, Estilo: ${style}, Clima: ${mood}`);
     
     // Criar prompt aprimorado para imagem
     const enhancedPrompt = promptEnhancer.enhanceChapterImagePrompt({
       chapterTitle,
       chapterContent,
-      characterDescriptions,
+      characterDescriptions: [],
       ageGroup,
       style,
       mood
     });
     
+    logger.debug(`Prompt aprimorado gerado com ${enhancedPrompt.length} caracteres`);
+    
     // Definir o tamanho da imagem com base no nível de assinatura
     const imageSize = userTier === 'free' ? '512x512' : (userTier === 'plus' ? '768x768' : '1024x1024');
     
-    // Gerar a imagem com o prompt aprimorado
-    const imageUrl = await aiProviderManager.generateImage({
+    logger.info(`Chamando provider para gerar imagem com tamanho ${imageSize}`);
+    
+    // Verificar se devemos forçar um provedor específico
+    let generationOptions: ImageGenerationParams = {
       prompt: enhancedPrompt,
-      n: 1,
-      size: imageSize,
-      storyId,
-      chapterId,
-      ageGroup,
+      size: imageSize as any,
       style,
       mood,
-      characterDescriptions
-    });
+      characterDescriptions: []
+    };
     
-    // Atualizar descrições visuais dos personagens
-    if (characterNames.length > 0 && imageUrl) {
-      try {
-        // Preparar as atualizações para cada personagem
-        const characterUpdates = characterNames.map(name => ({
-          name,
-          imageUrl,
-          chapterId,
-          description: promptEnhancer.extractCharacterDescription(name, chapterContent)
-        }));
-        
-        // Atualizar o serviço de consistência
-        characterConsistencyService.updateCharacterVisuals(storyId, characterUpdates);
-        logger.debug(`Atualizadas descrições visuais para ${characterNames.length} personagens`);
-      } catch (error) {
-        logger.error('Erro ao atualizar descrições dos personagens:', error);
-        // Não interromper o fluxo por causa de erro na atualização
-      }
+    // Gerar a imagem usando o serviço de IA
+    let result;
+    
+    // Se forceProvider estiver definido, usamos o provedor específico
+    if (options.forceProvider) {
+      logger.info(`Forçando uso do provedor: ${options.forceProvider}`);
+      
+      // Adicionar o provedor forçado aos parâmetros de geração
+      generationOptions.provider = options.forceProvider;
+      
+      // Usar o gerenciador para gerar a imagem com o provedor específico
+      result = await aiProviderManager.generateImage(generationOptions, userTier);
+    } else {
+      // Definir HuggingFace como provedor padrão
+      generationOptions.provider = 'huggingface';
+      
+      // Usar o gerenciador normal de provedores com preferência para HuggingFace
+      result = await aiProviderManager.generateImage(generationOptions, userTier);
     }
     
-    return { success: true, imageUrl };
-  } catch (error) {
+    logger.debug(`Resposta do provedor de IA recebida:`, {
+      success: result.success,
+      provider: result.provider,
+      hasImageUrl: !!result.imageUrl,
+      imageUrlType: typeof result.imageUrl
+    });
+    
+    // Log detalhado se a imageUrl for um objeto
+    if (result.imageUrl && typeof result.imageUrl === 'object') {
+      logger.debug(`Objeto imageUrl retornado pelo provedor:`, result.imageUrl);
+    }
+    
+    // Verificar se a geração foi bem-sucedida
+    if (result.success && result.imageUrl) {
+      // Tentar extrair URL válida se for um objeto
+      if (typeof result.imageUrl === 'object') {
+        logger.warn(`imageUrl retornada como objeto, tentando extrair URL válida`, result.imageUrl);
+        // @ts-ignore
+        const extractedUrl = result.imageUrl.url || result.imageUrl.imageUrl || result.imageUrl.src;
+        if (extractedUrl) {
+          logger.info(`URL extraída com sucesso do objeto`);
+          return { 
+            success: true, 
+            imageUrl: extractedUrl,
+            provider: result.provider
+          };
+        } else {
+          logger.error(`Não foi possível extrair URL válida do objeto`);
+          return { 
+            success: false, 
+            error: 'Formato de resposta inválido do provedor de IA',
+            provider: result.provider
+          };
+        }
+      }
+      
+      // URL como string - formato esperado
+      logger.info(`Imagem gerada com sucesso pelo provedor ${result.provider}`);
+      return { 
+        success: true, 
+        imageUrl: result.imageUrl,
+        provider: result.provider
+      };
+    } else {
+      // Falha na geração
+      logger.error(`Falha na geração de imagem: ${result.error || 'Erro desconhecido'}`);
+      return { 
+        success: false, 
+        error: result.error || 'Não foi possível gerar a imagem',
+        provider: result.provider
+      };
+    }
+  } catch (error: any) {
     logger.error(`Erro ao gerar imagem para capítulo: ${error instanceof Error ? error.message : String(error)}`);
     
     // Tentar novamente com provedor diferente em caso de falha
     try {
-      logger.info('Tentando novamente com provedor alternativo');
+      logger.info('Tentando novamente com provedor alternativo (OpenAI)');
       
-      const fallbackImageUrl = await aiProviderManager.generateImage({
-        prompt: `Ilustração para história infantil "${prompt.substring(0, 100)}..."`,
+      const fallbackParams: ImageGenerationParams = {
+        prompt: `Ilustração para história infantil "${promptOrChapterId.toString().substring(0, 100)}..."`,
         n: 1,
         size: userTier === 'free' ? '512x512' : '1024x1024',
-        provider: 'fallback'
-      });
+        provider: 'openai'
+      };
       
-      return { success: true, imageUrl: fallbackImageUrl };
-    } catch (fallbackError) {
+      const fallbackResult = await aiProviderManager.generateImage(fallbackParams, userTier);
+      
+      if (fallbackResult.success && fallbackResult.imageUrl) {
+        logger.info(`Imagem gerada com sucesso pelo provedor de fallback: ${fallbackResult.provider}`);
+        return { 
+          success: true, 
+          imageUrl: fallbackResult.imageUrl,
+          provider: fallbackResult.provider || 'openai'
+        };
+      } else {
+        throw new Error(fallbackResult.error || 'Falha no provedor alternativo');
+      }
+    } catch (fallbackError: any) {
       logger.error(`Falha também no provedor alternativo: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
       return { 
         success: false, 

@@ -1,11 +1,12 @@
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 
 // Carregar variáveis de ambiente
 dotenv.config();
 
 const config = {
   app: {
-    port: process.env.PORT || 5000,
+    port: 3002,
     env: process.env.NODE_ENV || 'development',
     isProduction: process.env.NODE_ENV === 'production',
   },
@@ -53,6 +54,9 @@ const config = {
     },
     runware: {
       apiKey: process.env.RUNWARE_API_KEY,
+    },
+    huggingface: {
+      apiKey: process.env.HUGGINGFACE_API_KEY,
     },
   },
 };

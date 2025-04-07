@@ -73,9 +73,8 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
       setImageGenerating(true);
       
       try {
-        // Tentar usar o prompt de imagem do capítulo, ou gerar baseado no conteúdo
-        const promptSource = story?.chapters?.[chapterIndex]?.imagePrompt || 
-          `Ilustração para o capítulo "${chapterTitle}": ${chapterContent.substring(0, 200)}`;
+        console.log(`Gerando imagem para capítulo "${chapterTitle}" (índice ${chapterIndex})`);
+        console.log(`Personagens: ${characterNames.join(', ')}`);
           
         const payload = {
           chapterTitle,
@@ -84,12 +83,19 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           options: {
             style: "cartoon",
             mood: "adventure",
-            ageGroup: story?.ageGroup
+            ageGroup: story?.ageGroup,
+            storyId: storyId
           }
         };
         
+        console.log("Enviando requisição para API de geração de imagem:", payload);
+        
+        // Usar a rota existente que restauramos para compatibilidade
         const response = await apiRequest("POST", "/api/stories/generateChapterImage", payload);
-        return { response: response as any, chapterIndex };
+        
+        console.log("Resposta da API de geração de imagem:", response);
+        
+        return { response, chapterIndex };
       } catch (error) {
         console.error("Erro ao gerar imagem:", error);
         throw error;

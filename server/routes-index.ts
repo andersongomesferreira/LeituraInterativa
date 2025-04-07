@@ -12,6 +12,7 @@ import authRoutes from './routes/auth';
 import storiesRoutes from './routes/stories';
 import apiKeysRoutes from './routes/api-keys';
 import userApiKeysRoutes from './routes/user-api-keys';
+import adminRoutes from './routes/admin';
 
 // Importar middlewares de segurança
 import { isAuthenticated, isAdmin } from './middleware/security';
@@ -64,6 +65,7 @@ export async function registerModularRoutes(app: Express): Promise<Server> {
   app.use('/api/stories', storiesRoutes);
   app.use('/api/admin/api-keys', isAdmin, apiKeysRoutes);
   app.use('/api/user/api-keys', isAuthenticated, userApiKeysRoutes);
+  app.use('/api/admin', adminRoutes);
 
   // Outras rotas modulares (a serem implementadas posteriormente)
   // app.use('/api/characters', characterRoutes);

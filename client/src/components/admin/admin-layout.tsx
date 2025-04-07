@@ -11,6 +11,8 @@ import {
   LogOut,
   Menu,
   X,
+  Image,
+  LineChart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -26,18 +28,17 @@ interface NavItemProps {
 
 function NavItem({ href, icon, title, active, onClick }: NavItemProps) {
   return (
-    <Link href={href}>
-      <a
-        className={`flex items-center space-x-3 px-3 py-2 rounded-md transition ${
-          active
-            ? "bg-primary/10 text-primary"
-            : "hover:bg-muted text-muted-foreground hover:text-foreground"
-        }`}
-        onClick={onClick}
-      >
-        {icon}
-        <span>{title}</span>
-      </a>
+    <Link 
+      href={href}
+      onClick={onClick}
+      className={`flex items-center space-x-3 px-3 py-2 rounded-md transition ${
+        active
+          ? "bg-primary/10 text-primary"
+          : "hover:bg-muted text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      {icon}
+      <span>{title}</span>
     </Link>
   );
 }
@@ -72,6 +73,21 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       href: "/admin/characters-themes",
       icon: <Settings size={20} />,
       title: "Personagens e Temas",
+    },
+    {
+      href: "/admin/ai-test/text",
+      icon: <BookOpen size={20} />,
+      title: "Teste de Textos",
+    },
+    {
+      href: "/admin/ai-test/image",
+      icon: <Image size={20} />,
+      title: "Teste de Imagens",
+    },
+    {
+      href: "/admin/monitoring",
+      icon: <LineChart size={20} />,
+      title: "Monitoramento",
     },
     {
       href: "/admin/ai-providers",

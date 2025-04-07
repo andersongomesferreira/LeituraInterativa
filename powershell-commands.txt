@@ -1,0 +1,19 @@
+# Comandos PowerShell corretos para o projeto
+
+# Matar processos nas portas
+.\kill-ports.bat
+
+# Navegar para a pasta server e iniciar o servidor (em uma janela)
+cd server; npm run dev
+
+# Navegar para a pasta client e iniciar o cliente (em outra janela)
+cd client; npm run dev
+
+# Ou usar os scripts batch
+.\start-server.bat
+# Em outra janela:
+.\start-client.bat
+
+# Acessar a aplicação no navegador
+# - Frontend (cliente): http://localhost:5173
+# - Backend (servidor): http://localhost:3002/api 

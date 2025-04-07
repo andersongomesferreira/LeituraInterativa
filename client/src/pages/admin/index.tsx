@@ -2,11 +2,14 @@ import { AdminLayout } from "@/components/admin/admin-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Users, BookOpen, CreditCard, Activity } from "lucide-react";
+import { Loader2, Users, BookOpen, CreditCard, Activity, AlertTriangle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 
 // Type definitions
 interface DashboardData {
+  success: boolean;
   counts: {
     users: number;
     stories: number;
@@ -16,22 +19,32 @@ interface DashboardData {
   aiProviders: Array<{
     id: string;
     name: string;
-    isAvailable: boolean;
+    status: string;
     capabilities: string[];
     metrics: {
-      success: number;
-      total: number;
-      successRate: number;
+      requestsLast24h: number;
+      avgResponseTime: number;
+      errorRate: number;
     };
   }>;
 }
 
 export default function AdminDashboard() {
-  const { data, isLoading, error } = useQuery<DashboardData>({
+  const [, setLocation] = useLocation();
+  
+  const { data, isLoading, error, isError } = useQuery<DashboardData>({
     queryKey: ["/api/admin/dashboard"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/admin/dashboard");
-      return response.json();
+    queryFn: async ({ queryKey }) => {
+      try {
+        return await apiRequest("GET", queryKey[0] as string);
+      } catch (error) {
+        console.error("Admin dashboard query error:", error);
+        if (error instanceof Error && error.message.includes("403")) {
+          // Unauthorized access error
+          throw new Error("Acesso não autorizado. Você precisa ser administrador para acessar esta página.");
+        }
+        throw error;
+      }
     },
   });
 
@@ -45,15 +58,20 @@ export default function AdminDashboard() {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center min-h-[50vh] text-center">
-          <div>
-            <h2 className="text-lg font-semibold mb-2">Erro ao carregar dados</h2>
-            <p className="text-muted-foreground">
-              {error instanceof Error ? error.message : "Erro desconhecido"}
-            </p>
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+          <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+          <h2 className="text-lg font-semibold mb-2">Erro ao carregar dados</h2>
+          <p className="text-muted-foreground mb-6 max-w-lg">
+            {error instanceof Error ? error.message : "Erro desconhecido"}
+          </p>
+          <div className="flex gap-4">
+            <Button onClick={() => setLocation("/")}>Voltar para Home</Button>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Tentar novamente
+            </Button>
           </div>
         </div>
       </AdminLayout>
@@ -190,7 +208,7 @@ export default function AdminDashboard() {
                           Capacidades
                         </th>
                         <th className="py-3 px-4 text-left font-medium text-sm">
-                          Taxa de Sucesso
+                          Requisições 24h
                         </th>
                       </tr>
                     </thead>
@@ -204,12 +222,12 @@ export default function AdminDashboard() {
                           <td className="py-3 px-4">
                             <span
                               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                provider.isAvailable
+                                provider.status === 'operational'
                                   ? "bg-green-100 text-green-800"
                                   : "bg-red-100 text-red-800"
                               }`}
                             >
-                              {provider.isAvailable ? "Disponível" : "Indisponível"}
+                              {provider.status === 'operational' ? "Disponível" : "Indisponível"}
                             </span>
                           </td>
                           <td className="py-3 px-4">
@@ -219,7 +237,7 @@ export default function AdminDashboard() {
                                   key={cap}
                                   className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
                                 >
-                                  {cap}
+                                  {cap === 'text' ? 'Texto' : cap === 'image' ? 'Imagem' : cap}
                                 </span>
                               ))}
                             </div>
@@ -227,18 +245,11 @@ export default function AdminDashboard() {
                           <td className="py-3 px-4">
                             <div className="flex items-center">
                               <div className="mr-2">
-                                {provider.metrics.successRate.toFixed(1)}%
+                                {provider.metrics.requestsLast24h}
                               </div>
-                              <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-primary"
-                                  style={{
-                                    width: `${Math.max(
-                                      Math.min(provider.metrics.successRate, 100),
-                                      0
-                                    )}%`,
-                                  }}
-                                ></div>
+                              <div className="ml-2 text-xs text-muted-foreground">
+                                Tempo resp: {provider.metrics.avgResponseTime.toFixed(1)}s | 
+                                Erros: {(provider.metrics.errorRate * 100).toFixed(1)}%
                               </div>
                             </div>
                           </td>

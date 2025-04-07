@@ -6,11 +6,19 @@ import { LexicaProvider } from './lexica-provider';
 import { ReplicateProvider } from './replicate-provider';
 import { GetImgProvider } from './getimg-provider';
 import { RunwareProvider } from './runware-provider';
+import { HuggingFaceProvider } from './huggingface-provider';
 import config from '../../config';
 import logger from '../logger';
 
 // Backup image URL for when all image generation providers fail
 const BACKUP_IMAGE_URL = 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
+
+// Add the AICapability enum
+export enum AICapability {
+  TEXT_GENERATION = 'text',
+  IMAGE_GENERATION = 'image',
+  AUDIO_GENERATION = 'audio'
+}
 
 /**
  * AI Provider Manager
@@ -63,6 +71,13 @@ export class AIProviderManager {
   // Período de espera para tentar novamente um provedor que falhou (15 minutos)
   private readonly RETRY_TIMEOUT = 15 * 60 * 1000;
   
+  // Método para definir o provedor preferido para testes
+  private tempPreferredProviders: Record<AICapability, string> = {
+    [AICapability.TEXT_GENERATION]: '',
+    [AICapability.IMAGE_GENERATION]: '',
+    [AICapability.AUDIO_GENERATION]: ''
+  };
+  
   constructor() {
     // Register default providers
     this.registerProvider(new OpenAIProvider());
@@ -72,6 +87,7 @@ export class AIProviderManager {
     this.registerProvider(new ReplicateProvider());
     this.registerProvider(new GetImgProvider());
     this.registerProvider(new RunwareProvider());
+    this.registerProvider(new HuggingFaceProvider());
     
     // Initialize metrics
     Array.from(this.providers.values()).forEach(provider => {
@@ -108,7 +124,8 @@ export class AIProviderManager {
       { configKey: 'stability', providerId: 'stability' },
       { configKey: 'replicate', providerId: 'replicate' },
       { configKey: 'getimg', providerId: 'getimg' },
-      { configKey: 'runware', providerId: 'runware' }
+      { configKey: 'runware', providerId: 'runware' },
+      { configKey: 'huggingface', providerId: 'huggingface' }
     ];
     
     // Track which keys were loaded
@@ -552,7 +569,22 @@ export class AIProviderManager {
       this.metrics.set(selectedProvider.id, providerMetrics);
       
       console.log(`Attempting image generation with ${selectedProvider.id}...`);
-      const result = await selectedProvider.generateImage(params);
+      
+      // Create a modified version of params with provider-compatible model
+      const adaptedParams = { ...params };
+      
+      // Adapt model parameter based on provider
+      if (selectedProvider.id === 'openai') {
+        // OpenAI doesn't support specific models like stable-diffusion-xl
+        console.log(`Adapting model parameter for OpenAI: removing model "${params.model}"`);
+        delete adaptedParams.model; // Remove model for OpenAI as it should be left blank
+      } else if (selectedProvider.id === 'huggingface' && (!params.model || params.model === 'dall-e-3')) {
+        // HuggingFace doesn't support DALL-E models
+        console.log(`Adapting model parameter for HuggingFace: setting default model`);
+        adaptedParams.model = 'stable-diffusion-xl';
+      }
+      
+      const result = await selectedProvider.generateImage(adaptedParams);
       
       // Check if result has a valid image URL
       if (!result.success || !result.imageUrl || result.imageUrl.trim().length === 0) {
@@ -624,7 +656,21 @@ export class AIProviderManager {
           fallbackMetrics.total++;
           this.metrics.set(fallbackId, fallbackMetrics);
           
-          const result = await fallbackProvider.generateImage(params);
+          // Create a modified version of params with provider-compatible model
+          const adaptedFallbackParams = { ...params };
+          
+          // Adapt model parameter based on provider
+          if (fallbackId === 'openai') {
+            // OpenAI doesn't support specific models like stable-diffusion-xl
+            console.log(`Adapting model parameter for OpenAI: removing model "${params.model}"`);
+            delete adaptedFallbackParams.model; // Remove model for OpenAI as it should be left blank
+          } else if (fallbackId === 'huggingface' && (!params.model || params.model === 'dall-e-3')) {
+            // HuggingFace doesn't support DALL-E models
+            console.log(`Adapting model parameter for HuggingFace: setting default model`);
+            adaptedFallbackParams.model = 'stable-diffusion-xl';
+          }
+          
+          const result = await fallbackProvider.generateImage(adaptedFallbackParams);
           
           // Check if result has a valid image URL
           if (!result.success || !result.imageUrl || result.imageUrl.trim().length === 0) {
@@ -703,6 +749,15 @@ export class AIProviderManager {
    */
   getProviders(): AIProvider[] {
     return Array.from(this.providers.values());
+  }
+  
+  /**
+   * Gets a specific provider by ID
+   * @param providerId The ID of the provider to retrieve
+   * @returns The provider instance or undefined if not found
+   */
+  getProvider(providerId: string): AIProvider | undefined {
+    return this.providers.get(providerId);
   }
   
   /**
@@ -882,6 +937,86 @@ export class AIProviderManager {
         logger.info(`Provedor de imagem ${providerId} removido da lista de falhas`);
       }
     });
+  }
+
+  /**
+   * Sets a preferred provider for model testing
+   * @param type The capability type (text, image)
+   * @param providerId The provider ID to set as preferred
+   */
+  async setPreferredProviderForModelTest(type: AICapability, providerId: string): Promise<void> {
+    const provider = this.providers.get(providerId);
+    if (!provider) {
+      throw new Error(`Provider ${providerId} not found`);
+    }
+
+    // Store the current preferred provider to restore later
+    this.tempPreferredProviders[type] = providerId;
+    
+    logger.info(`Set preferred provider for ${type} testing to ${providerId}`);
+  }
+
+  /**
+   * Restores the original preferred provider after testing
+   * @param type The capability type to restore
+   */
+  restorePreferredProvider(type: AICapability): void {
+    if (this.tempPreferredProviders[type]) {
+      delete this.tempPreferredProviders[type];
+      logger.info(`Restored original provider preferences for ${type}`);
+    }
+  }
+
+  /**
+   * Get all available models from providers
+   * @param type Optional filter by capability type
+   * @returns Array of model information objects
+   */
+  async getAvailableModels(type?: AICapability): Promise<Array<{
+    id: string;
+    name: string;
+    provider: string;
+    capabilities: string[];
+  }>> {
+    const models: Array<{
+      id: string;
+      name: string;
+      provider: string;
+      capabilities: string[];
+    }> = [];
+
+    try {
+      // Convert Map.values() to array before iteration to avoid downlevelIteration issues
+      const providerArray = Array.from(this.providers.values());
+      
+      for (const provider of providerArray) {
+        // Skip providers that don't have the requested capability
+        if (type === AICapability.TEXT_GENERATION && !provider.capabilities.textGeneration) continue;
+        if (type === AICapability.IMAGE_GENERATION && !provider.capabilities.imageGeneration) continue;
+        if (type === AICapability.AUDIO_GENERATION && !provider.capabilities.audioGeneration) continue;
+
+        // Check if provider has a getAvailableModels method
+        if ('getAvailableModels' in provider && typeof (provider as any).getAvailableModels === 'function') {
+          try {
+            const providerModels = await (provider as any).getAvailableModels(type);
+            if (Array.isArray(providerModels)) {
+              providerModels.forEach(model => {
+                models.push({
+                  ...model,
+                  provider: provider.id
+                });
+              });
+            }
+          } catch (error) {
+            logger.error(`Error getting models from ${provider.id}:`, error);
+          }
+        }
+      }
+    } catch (error) {
+      logger.error('Error getting available models:', error);
+    }
+
+    return models;
   }
 }
 

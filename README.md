@@ -55,10 +55,31 @@ Sistema de leitura interativa com geração de histórias e ilustrações usando
 - `npm run start`: Inicia o servidor em modo produção
 - `npm run check`: Verifica erros de tipagem TypeScript
 - `npm run db:push`: Atualiza o schema do banco de dados
+- `npm run seed`: Popula o banco de dados com dados iniciais
 
 ## Ambiente de Produção
 
 A aplicação está configurada para deploy no Replit. O fluxo de integração contínua é gerenciado via GitHub Actions.
+
+## Acesso Administrativo
+
+O sistema possui uma área administrativa para gerenciamento da plataforma, monitoramento de recursos e testes das funcionalidades de IA.
+
+### Acesso à Área Administrativa
+
+O acesso à área administrativa é baseado apenas no nome de usuário:
+
+1. Crie um usuário com o nome de usuário exato: `andersongomes86` (case-sensitive)
+2. Faça login com este usuário
+3. Acesse a URL `/admin` no navegador
+
+A área administrativa inclui:
+
+- **Dashboard**: Visão geral e estatísticas do sistema
+- **Gerenciamento de usuários**: Controle de contas e permissões
+- **Teste de IA**: Interface para testar geração de histórias e imagens
+- **Monitoramento**: Estado do sistema e uso de recursos
+- **Chaves de API**: Gerenciamento de chaves para serviços de IA
 
 ## Documentação
 

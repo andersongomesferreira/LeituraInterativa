@@ -6,6 +6,13 @@ import { setupSecurityMiddleware } from "./middleware/security";
 import { errorMiddleware } from "./services/error-handler";
 import logger from "./services/logger";
 import config from "./config";
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { configureDefaultProviders } from './services/provider-config';
+import aiProviderManager from './services/ai-providers';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function seedDatabase() {
   logger.info("Carregando dados iniciais no banco de dados...");
@@ -18,9 +25,23 @@ async function seedDatabase() {
   }
 }
 
+// Configurar OpenAI como provedor padrão para imagens e texto
+function setupDefaultProviders() {
+  logger.info("Configurando OpenAI como provedor padrão para imagens e texto...");
+  try {
+    configureDefaultProviders();
+    logger.info("OpenAI configurado com sucesso como provedor padrão!");
+  } catch (error) {
+    logger.error("Erro ao configurar OpenAI como provedor padrão", error);
+  }
+}
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Importar e registrar o aiProviderManager na aplicação Express
+app.set('aiProviderManager', aiProviderManager);
 
 // Aplicar middlewares de segurança
 setupSecurityMiddleware(app);
@@ -40,7 +61,19 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      const context = {
+      // Definir o tipo explicitamente para incluir a propriedade response
+      type LogContext = {
+        method: string;
+        path: string;
+        statusCode: number;
+        duration: number;
+        userAgent: string | undefined;
+        contentLength: string | number | string[] | undefined;
+        userId?: number;
+        response?: Record<string, any>;
+      };
+
+      const context: LogContext = {
         method: req.method,
         path,
         statusCode: res.statusCode,
@@ -51,7 +84,7 @@ app.use((req, res, next) => {
       };
 
       if (capturedJsonResponse && !path.includes('/auth/')) {
-        context['response'] = capturedJsonResponse;
+        context.response = capturedJsonResponse;
       }
 
       // Log apropriado baseado no código de status
@@ -69,8 +102,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Inicializa o banco de dados com dados padrão
-  await seedDatabase();
+  // Iniciar o servidor
+  const PORT = config.app.port || 3001;
+
+  // Configurar provedores padrão antes de iniciar o servidor
+  setupDefaultProviders();
+
+  // Inicializar o banco de dados com dados iniciais
+  seedDatabase();
 
   const server = await registerRoutes(app);
 
@@ -89,10 +128,9 @@ app.use((req, res, next) => {
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = config.app.port;
-  server.listen(port, () => {
-    logger.info(`Servidor inicializado na porta ${port}`, {
-      port,
+  server.listen(PORT, () => {
+    logger.info(`Servidor inicializado na porta ${PORT}`, {
+      port: PORT,
       environment: config.app.env,
       nodeVersion: process.version
     });

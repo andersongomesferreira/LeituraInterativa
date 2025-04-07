@@ -10,6 +10,15 @@ export interface AIProvider {
   checkHealth(): Promise<HealthCheckResult>;
   generateText(params: TextGenerationParams): Promise<TextGenerationResult>;
   generateImage(params: ImageGenerationParams): Promise<ImageGenerationResult>;
+  
+  // Método opcional para verificar se o provedor tem uma API key configurada
+  hasApiKey?(): boolean;
+  
+  // Método opcional para obter os modelos suportados pelo provedor
+  getModels?(): string[] | Array<{id: string, name: string}>;
+  
+  // Flag opcional para indicar se o provedor suporta estilos personalizados
+  supportsStyles?: boolean;
 }
 
 // Status atual de um provedor

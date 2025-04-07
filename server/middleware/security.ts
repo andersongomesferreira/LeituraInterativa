@@ -15,15 +15,48 @@ export const isAuthenticated = (req: Request, res: Response, next: NextFunction)
   });
 };
 
-// Middleware para verificar papel de administrador
+// Middleware para verificar usuário administrador - versão melhorada
 export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (req.isAuthenticated() && req.user && (req.user as any).role === 'admin') {
-    return next();
+  try {
+    // Verificar se o usuário está autenticado
+    if (!req.isAuthenticated()) {
+      console.log('isAdmin: Usuário não autenticado');
+      return res.status(401).json({ 
+        success: false,
+        message: "Não autorizado. Por favor, faça login para continuar." 
+      });
+    }
+    
+    // Verificar se o usuário existe
+    if (!req.user) {
+      console.log('isAdmin: Objeto user não encontrado na requisição');
+      return res.status(401).json({ 
+        success: false,
+        message: "Dados de usuário não encontrados." 
+      });
+    }
+    
+    const user = req.user as any;
+    console.log(`isAdmin check: username=${user.username}, role=${user.role || 'não definido'}`);
+    
+    // Verificar se o usuário é um administrador (por username ou role)
+    // Verificando tanto o username específico quanto a role para compatibilidade
+    if (user.username === 'andersongomes86' || user.role === 'admin') {
+      return next();
+    }
+    
+    console.log('isAdmin: Acesso negado - usuário não é administrador');
+    return res.status(403).json({ 
+      success: false,
+      message: "Acesso negado. Apenas o administrador tem permissão." 
+    });
+  } catch (error) {
+    console.error('Erro no middleware isAdmin:', error);
+    return res.status(500).json({ 
+      success: false,
+      message: "Erro interno do servidor ao verificar permissões." 
+    });
   }
-  return res.status(403).json({ 
-    success: false,
-    message: "Acesso negado. Apenas administradores têm permissão." 
-  });
 };
 
 // Rate limiter para proteção contra força bruta
@@ -63,10 +96,11 @@ export const securityHeaders = helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "*.cloudfront.net", "*.imgur.com", "*.iconfinder.com", "placehold.co"],
-      connectSrc: ["'self'", "*.api.openai.com", "*.api.anthropic.com", "api.stability.ai"]
+      scriptSrc: ["'self'", "'unsafe-inline'", "*.replit.com", "replit.com", "http://gc.kis.v2.scr.kaspersky-labs.com", "ws://gc.kis.v2.scr.kaspersky-labs.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "*.googleapis.com", "fonts.googleapis.com", "http://gc.kis.v2.scr.kaspersky-labs.com", "ws://gc.kis.v2.scr.kaspersky-labs.com"],
+      imgSrc: ["'self'", "data:", "*.cloudfront.net", "*.imgur.com", "*.iconfinder.com", "placehold.co", "cdn.jsdelivr.net", "*.jsdelivr.net", "http://gc.kis.v2.scr.kaspersky-labs.com", "ws://gc.kis.v2.scr.kaspersky-labs.com"],
+      fontSrc: ["'self'", "*.gstatic.com", "fonts.gstatic.com"],
+      connectSrc: ["'self'", "*.api.openai.com", "*.api.anthropic.com", "api.stability.ai", "localhost:3001", "http://localhost:3001", "ws://localhost:3001", "api-inference.huggingface.co", "*.huggingface.co", "localhost:5000", "http://localhost:5000", "ws://localhost:5000"]
     }
   },
   referrerPolicy: { policy: 'same-origin' }
