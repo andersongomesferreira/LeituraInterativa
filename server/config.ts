@@ -10,11 +10,11 @@ const config = {
     env: process.env.NODE_ENV || 'development',
     isProduction: process.env.NODE_ENV === 'production',
   },
-  
+
   db: {
     url: process.env.DATABASE_URL,
   },
-  
+
   session: {
     secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     cookie: {
@@ -24,17 +24,17 @@ const config = {
     resave: false,
     saveUninitialized: false,
   },
-  
+
   redis: {
     url: process.env.REDIS_URL,
     enabled: !!process.env.REDIS_URL,
   },
-  
+
   security: {
     bcryptSaltRounds: 10,
     corsOrigin: process.env.CORS_ORIGIN || '*',
   },
-  
+
   ai: {
     openai: {
       apiKey: process.env.OPENAI_API_KEY,
@@ -61,4 +61,4 @@ const config = {
   },
 };
 
-export default config; 
+export default config;
