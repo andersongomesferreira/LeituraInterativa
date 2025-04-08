@@ -6,7 +6,7 @@ dotenv.config();
 
 const config = {
   app: {
-    port: 3002,
+    port: 5000,
     env: process.env.NODE_ENV || 'development',
     isProduction: process.env.NODE_ENV === 'production',
   },
