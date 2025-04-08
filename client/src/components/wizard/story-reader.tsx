@@ -134,7 +134,6 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
     },
     onSuccess: ({ imageUrl, chapterIndex }) => {
       // Adicionar timestamp à URL da imagem para evitar cache
-      let timestampedUrl = imageUrl;
       const timestampedUrl = imageUrl.includes('?') ? 
         `${imageUrl}&t=${Date.now()}` : 
         `${imageUrl}?t=${Date.now()}`;
