@@ -523,16 +523,48 @@ export class AIProviderManager {
     const tierConfig = this.routingConfig.userTierLimits[userTier] || this.routingConfig.userTierLimits.free;
     const allowedProviderIds = tierConfig.allowedProviders;
 
+    // Force check provider health to ensure we have most up-to-date availability info
+    await this.checkAllProvidersHealth();
+    
     // Filter providers that support image generation and are allowed for this user tier
     const imageProviders = Array.from(this.providers.values())
       .filter(p => p.capabilities.imageGeneration && allowedProviderIds.includes(p.id))
       .filter(p => p.status.isAvailable);
 
     if (imageProviders.length === 0) {
-      // Return backup image if no available providers
-      console.warn('No available image generation providers, using backup image');
+      // No providers available, try to use ALL providers regardless of initial availability
+      // This is our best effort attempt before using backup
+      console.warn('No available image generation providers, trying ALL providers as last resort');
+      
+      const allPossibleProviders = Array.from(this.providers.values())
+        .filter(p => p.capabilities.imageGeneration && allowedProviderIds.includes(p.id));
+      
+      if (allPossibleProviders.length > 0) {
+        console.log(`Attempting with all ${allPossibleProviders.length} providers regardless of status`);
+        
+        // Try ALL providers sequentially before giving up
+        for (const provider of allPossibleProviders) {
+          try {
+            console.log(`Last resort attempt with provider: ${provider.id}`);
+            const result = await provider.generateImage(params);
+            
+            if (result.success && result.imageUrl && result.imageUrl.trim().length > 0) {
+              console.log(`Last resort attempt succeeded with provider: ${provider.id}`);
+              return {
+                ...result,
+                provider: provider.id
+              };
+            }
+          } catch (error) {
+            console.error(`Last resort attempt failed with provider ${provider.id}:`, error);
+          }
+        }
+      }
+      
+      // If we get here, all attempts have failed
+      console.warn('All possible providers failed, using backup image');
       return {
-        success: true, // Alterado para true para evitar erros de processamento
+        success: true, 
         imageUrl: BACKUP_IMAGE_URL,
         model: 'backup',
         provider: 'backup',
@@ -542,169 +574,187 @@ export class AIProviderManager {
       };
     }
 
-    // Count available providers
+    // Log available providers
     console.log(`Found ${imageProviders.length} available image providers for tier ${userTier}: ${imageProviders.map(p => p.id).join(', ')}`);
 
-    // Start with default provider
-    let selectedProvider = this.providers.get(this.routingConfig.defaultImageProvider);
-
-    // If default provider is not available or not allowed, use the first available
-    if (!selectedProvider || !selectedProvider.status.isAvailable || !allowedProviderIds.includes(selectedProvider.id)) {
-      console.log(`Default provider ${this.routingConfig.defaultImageProvider} not available or allowed, using ${imageProviders[0].id} instead`);
-      selectedProvider = imageProviders[0];
-    } else {
-      console.log(`Using default provider: ${selectedProvider.id}`);
+    // Create a priority order for providers
+    // First use specifically requested provider if available
+    // Then try default provider
+    // Then try the rest in order of historical success rate
+    const priorityOrder: string[] = [];
+    
+    // Add requested provider if specified
+    if (params.provider && allowedProviderIds.includes(params.provider)) {
+      const requestedProvider = this.providers.get(params.provider);
+      if (requestedProvider && requestedProvider.capabilities.imageGeneration) {
+        priorityOrder.push(params.provider);
+        console.log(`Adding requested provider ${params.provider} to priority queue`);
+      }
     }
-
+    
+    // Add default provider if not already in list
+    if (this.routingConfig.defaultImageProvider && 
+        !priorityOrder.includes(this.routingConfig.defaultImageProvider) &&
+        allowedProviderIds.includes(this.routingConfig.defaultImageProvider)) {
+      priorityOrder.push(this.routingConfig.defaultImageProvider);
+      console.log(`Adding default provider ${this.routingConfig.defaultImageProvider} to priority queue`);
+    }
+    
+    // Add huggingface explicitly if not in list (it's usually the most reliable)
+    if (!priorityOrder.includes('huggingface') && allowedProviderIds.includes('huggingface')) {
+      priorityOrder.push('huggingface');
+      console.log(`Adding HuggingFace to priority queue`);
+    }
+    
+    // Add all other providers ordered by success rate
+    const providersWithRates = imageProviders
+      .filter(p => !priorityOrder.includes(p.id))
+      .map(provider => {
+        const metrics = this.metrics.get(provider.id) || { success: 0, total: 0 };
+        const successRate = metrics.total > 0 ? metrics.success / metrics.total : 0;
+        return { provider, successRate };
+      })
+      .sort((a, b) => b.successRate - a.successRate);
+    
+    // Add remaining providers in success rate order
+    providersWithRates.forEach(p => {
+      priorityOrder.push(p.provider.id);
+      console.log(`Adding provider ${p.provider.id} to priority queue (success rate: ${(p.successRate * 100).toFixed(1)}%)`);
+    });
+    
+    console.log(`Provider priority order: ${priorityOrder.join(' -> ')}`);
+    
     // List of providers we've already tried
     const triedProviders = new Set<string>();
+    const errors: Record<string, string> = {};
 
-    // Try with the selected provider
-    try {
-      triedProviders.add(selectedProvider.id);
-
-      // Update metrics
-      const providerMetrics = this.metrics.get(selectedProvider.id) || { success: 0, total: 0 };
-      providerMetrics.total++;
-      this.metrics.set(selectedProvider.id, providerMetrics);
-
-      console.log(`Attempting image generation with ${selectedProvider.id}...`);
-
-      // Create a modified version of params with provider-compatible model
-      const adaptedParams = { ...params };
-
-      // Adapt model parameter based on provider
-      if (selectedProvider.id === 'openai') {
-        // OpenAI doesn't support specific models like stable-diffusion-xl
-        console.log(`Adapting model parameter for OpenAI: removing model "${params.model}"`);
-        delete adaptedParams.model; // Remove model for OpenAI as it should be left blank
-      } else if (selectedProvider.id === 'huggingface' && (!params.model || params.model === 'dall-e-3')) {
-        // HuggingFace doesn't support DALL-E models
-        console.log(`Adapting model parameter for HuggingFace: setting default model`);
-        adaptedParams.model = 'stable-diffusion-xl';
+    // Try each provider in priority order
+    for (const providerId of priorityOrder) {
+      const provider = this.providers.get(providerId);
+      
+      if (!provider) {
+        console.log(`Provider ${providerId} not found, skipping`);
+        continue;
       }
-
-      const result = await selectedProvider.generateImage(adaptedParams);
-
-      // Check if result has a valid image URL
-      if (!result.success || !result.imageUrl || result.imageUrl.trim().length === 0) {
-        console.log(`${selectedProvider.id} returned success=false or empty URL, treating as failure`);
-        throw new Error(`${selectedProvider.id} returned unsuccessful result or empty URL`);
+      
+      if (triedProviders.has(providerId)) {
+        console.log(`Provider ${providerId} already tried, skipping`);
+        continue;
       }
-
-      // Update success metrics
-      providerMetrics.success++;
-      this.metrics.set(selectedProvider.id, providerMetrics);
-
-      // Log success rate
-      console.log(`Provider ${selectedProvider.id} metrics: ${providerMetrics.success}/${providerMetrics.total} successful (${(providerMetrics.success / providerMetrics.total * 100).toFixed(1)}%)`);
-
-      return {
-        ...result,
-        provider: selectedProvider.id // Ensure provider is always set
-      };
-    } catch (error) {
-      console.error(`Image generation with ${selectedProvider.id} failed:`, error);
-
-      // Log metrics for failed provider
-      const failedMetrics = this.metrics.get(selectedProvider.id);
-      if (failedMetrics) {
-        console.log(`Provider ${selectedProvider.id} metrics: ${failedMetrics.success}/${failedMetrics.total} successful (${(failedMetrics.success / failedMetrics.total * 100).toFixed(1)}%)`);
+      
+      if (!provider.capabilities.imageGeneration) {
+        console.log(`Provider ${providerId} does not support image generation, skipping`);
+        continue;
       }
+      
+      try {
+        triedProviders.add(providerId);
+        console.log(`Attempting image generation with ${providerId}...`);
 
-      console.log('Image generation failed, trying fallback providers');
+        // Update metrics
+        const providerMetrics = this.metrics.get(providerId) || { success: 0, total: 0 };
+        providerMetrics.total++;
+        this.metrics.set(providerId, providerMetrics);
 
-      // Get fallback providers dynamically ordered by success rate
-      const fallbackProviders = this.getDynamicFallbackProviders(triedProviders, allowedProviderIds);
-      console.log(`Dynamic fallback order: ${fallbackProviders.join(', ')}`);
+        // Create a modified version of params with provider-compatible model
+        const adaptedParams = { ...params };
 
-      // Try each fallback provider
-      for (const fallbackId of fallbackProviders) {
-        const fallbackProvider = this.providers.get(fallbackId);
-
-        if (!fallbackProvider) {
-          console.log(`Provider ${fallbackId} not found, skipping`);
-          continue;
+        // Adapt model parameter based on provider
+        if (providerId === 'openai') {
+          console.log(`Adapting model parameter for OpenAI: removing model "${params.model}"`);
+          delete adaptedParams.model; // Remove model for OpenAI
+        } else if (providerId === 'huggingface' && (!params.model || params.model === 'dall-e-3')) {
+          console.log(`Adapting model parameter for HuggingFace: setting default model`);
+          adaptedParams.model = 'stable-diffusion-xl';
         }
 
-        if (triedProviders.has(fallbackId)) {
-          console.log(`Provider ${fallbackId} already tried, skipping`);
-          continue;
+        // Attempt generation with this provider
+        const result = await provider.generateImage(adaptedParams);
+
+        // Check if result has a valid image URL
+        if (!result.success || !result.imageUrl || result.imageUrl.trim().length === 0) {
+          console.log(`${providerId} returned success=false or empty URL, treating as failure`);
+          throw new Error(`${providerId} returned unsuccessful result or empty URL`);
         }
 
-        if (!fallbackProvider.status.isAvailable) {
-          console.log(`Provider ${fallbackId} not available, skipping`);
-          continue;
+        // If we get here, generation was successful
+        
+        // Update success metrics
+        providerMetrics.success++;
+        this.metrics.set(providerId, providerMetrics);
+
+        // Log success rate
+        console.log(`Provider ${providerId} metrics: ${providerMetrics.success}/${providerMetrics.total} successful (${(providerMetrics.success / providerMetrics.total * 100).toFixed(1)}%)`);
+
+        return {
+          ...result,
+          provider: providerId // Ensure provider is always set
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`Image generation with ${providerId} failed:`, errorMessage);
+        
+        // Track the error
+        errors[providerId] = errorMessage;
+        
+        // Log metrics for failed provider
+        const failedMetrics = this.metrics.get(providerId);
+        if (failedMetrics) {
+          console.log(`Provider ${providerId} metrics: ${failedMetrics.success}/${failedMetrics.total} successful (${(failedMetrics.success / failedMetrics.total * 100).toFixed(1)}%)`);
         }
-
-        if (!fallbackProvider.capabilities.imageGeneration) {
-          console.log(`Provider ${fallbackId} does not support image generation, skipping`);
-          continue;
-        }
-
-        if (!allowedProviderIds.includes(fallbackId)) {
-          console.log(`Provider ${fallbackId} not allowed for tier ${userTier}, skipping`);
-          continue;
-        }
-
-        try {
-          triedProviders.add(fallbackId);
-          console.log(`Trying fallback image generation with ${fallbackId}`);
-
-          // Update metrics
-          const fallbackMetrics = this.metrics.get(fallbackId) || { success: 0, total: 0 };
-          fallbackMetrics.total++;
-          this.metrics.set(fallbackId, fallbackMetrics);
-
-          // Create a modified version of params with provider-compatible model
-          const adaptedFallbackParams = { ...params };
-
-          // Adapt model parameter based on provider
-          if (fallbackId === 'openai') {
-            // OpenAI doesn't support specific models like stable-diffusion-xl
-            console.log(`Adapting model parameter for OpenAI: removing model "${params.model}"`);
-            delete adaptedFallbackParams.model; // Remove model for OpenAI as it should be left blank
-          } else if (fallbackId === 'huggingface' && (!params.model || params.model === 'dall-e-3')) {
-            // HuggingFace doesn't support DALL-E models
-            console.log(`Adapting model parameter for HuggingFace: setting default model`);
-            adaptedFallbackParams.model = 'stable-diffusion-xl';
-          }
-
-          const result = await fallbackProvider.generateImage(adaptedFallbackParams);
-
-          // Check if result has a valid image URL
-          if (!result.success || !result.imageUrl || result.imageUrl.trim().length === 0) {
-            console.log(`${fallbackId} returned success=false or empty URL, treating as failure`);
-            throw new Error(`${fallbackId} returned unsuccessful result or empty URL`);
-          }
-
-          // Update success metrics
-          fallbackMetrics.success++;
-          this.metrics.set(fallbackId, fallbackMetrics);
-
-          console.log(`Fallback to ${fallbackId} successful`);
-
-          return {
-            ...result,
-            provider: fallbackId // Ensure provider is always set
-          };
-        } catch (fallbackError) {
-          console.error(`Fallback image generation with ${fallbackId} failed:`, fallbackError);
-        }
+        
+        // Continue trying next provider
+        continue;
       }
-
-      // Se all providers failed, return backup image
-      console.error('All image generation providers failed, returning backup image');
-      return {
-        success: true, // Alterado para true para evitar rejeição da promessa
-        imageUrl: BACKUP_IMAGE_URL,
-        model: 'backup',
-        provider: 'backup',
-        promptUsed: params.prompt,
-        isBackup: true,
-        error: 'All image generation providers failed'
-      };
     }
+
+    // If we reach here, all providers in the priority order have failed
+    // Try ANY remaining providers we haven't tried yet as a last resort
+    const remainingProviders = Array.from(this.providers.values())
+      .filter(p => p.capabilities.imageGeneration && allowedProviderIds.includes(p.id))
+      .filter(p => !triedProviders.has(p.id));
+    
+    if (remainingProviders.length > 0) {
+      console.log(`All priority providers failed. Trying ${remainingProviders.length} remaining providers as last resort`);
+      
+      for (const provider of remainingProviders) {
+        try {
+          console.log(`Last resort attempt with provider: ${provider.id}`);
+          const result = await provider.generateImage(params);
+          
+          if (result.success && result.imageUrl && result.imageUrl.trim().length > 0) {
+            console.log(`Last resort attempt succeeded with provider: ${provider.id}`);
+            return {
+              ...result,
+              provider: provider.id
+            };
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error(`Last resort attempt failed with provider ${provider.id}:`, errorMessage);
+          errors[provider.id] = errorMessage;
+        }
+      }
+    }
+
+    // If we get here, ALL providers have failed
+    console.error('All image generation providers failed, returning backup image');
+    
+    // Log all errors as a summary
+    const errorSummary = Object.entries(errors)
+      .map(([provider, error]) => `${provider}: ${error}`)
+      .join('; ');
+    
+    return {
+      success: true, // Alterado para true para evitar rejeição da promessa
+      imageUrl: BACKUP_IMAGE_URL,
+      model: 'backup',
+      provider: 'backup',
+      promptUsed: params.prompt,
+      isBackup: true,
+      error: `All providers failed: ${errorSummary.substring(0, 500)}...`,
+      attemptedProviders: Array.from(triedProviders)
+    };
   }
 
   /**

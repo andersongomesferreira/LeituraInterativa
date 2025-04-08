@@ -64,28 +64,40 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
 
   // Mutation para gerar ilustração para um capítulo
   const generateImageMutation = useMutation({
-    mutationFn: async ({ chapterIndex, chapterTitle, chapterContent, characterNames }: { 
+    mutationFn: async ({ chapterIndex, chapterTitle, chapterContent, characterNames, options }: { 
       chapterIndex: number, 
       chapterTitle: string, 
       chapterContent: string,
-      characterNames: string[]
+      characterNames: string[],
+      options?: {
+        style?: string,
+        mood?: string,
+        ageGroup?: string,
+        storyId?: number,
+        forceProvider?: string
+      }
     }) => {
       setImageGenerating(true);
 
       try {
         console.log(`Gerando imagem para capítulo "${chapterTitle}" (índice ${chapterIndex})`);
         console.log(`Personagens: ${characterNames.join(', ')}`);
+        
+        // Opções padrão se não forem fornecidas
+        const imageOptions = options || {
+          style: "cartoon",
+          mood: "adventure",
+          ageGroup: story?.ageGroup,
+          storyId: storyId
+        };
+
+        console.log("Opções de geração:", imageOptions);
 
         const payload = {
           chapterTitle,
           chapterContent,
           characters: characterNames,
-          options: {
-            style: "cartoon",
-            mood: "adventure",
-            ageGroup: story?.ageGroup,
-            storyId: storyId
-          }
+          options: imageOptions
         };
 
         console.log("Enviando requisição para API de geração de imagem:", payload);
@@ -97,6 +109,8 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
 
         // Extrair a URL da imagem
         let imageUrl = null;
+        let isBackupImage = false;
+        let attemptedProviders: string[] = [];
 
         if (typeof response === 'string') {
           imageUrl = response;
@@ -105,18 +119,46 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
                     (response.success && response.data?.imageUrl) ||
                     (response.data && response.data.imageUrl);
 
+          // Verificar se é imagem de backup
+          isBackupImage = !!response.isBackup;
+          
+          // Extrair quais provedores foram tentados
+          if (response.attemptedProviders && Array.isArray(response.attemptedProviders)) {
+            attemptedProviders = response.attemptedProviders;
+          }
+
           // Log detalhado da resposta para debug
           console.log("Resposta detalhada da API de imagens:", JSON.stringify(response, null, 2));
-
-          // Se temos isBackup=true na resposta, é uma imagem de fallback
-          if (response.isBackup) {
+          
+          if (isBackupImage) {
             console.log("Imagem de backup detectada:", imageUrl);
+            console.log("Provedores tentados:", attemptedProviders.join(', '));
+            
+            // Se já tentamos com alguns provedores específicos, podemos tentar com outros
+            // Esta lógica só será acionada se recebermos uma imagem de backup
+            if (attemptedProviders.length > 0) {
+              const possibleAlternatives = ['openai', 'huggingface', 'stability', 'replicate'];
+              const remainingOptions = possibleAlternatives.filter(p => !attemptedProviders.includes(p));
+              
+              if (remainingOptions.length > 0) {
+                console.log(`Tentativas automáticas falharam. Existem ${remainingOptions.length} provedores alternativos disponíveis.`);
+                // Não tentamos automaticamente para evitar loop infinito, apenas sugerimos
+                // toast({
+                //   title: "Geração de imagem falhou",
+                //   description: `Tentaremos novamente com outro provedor em alguns segundos...`,
+                // });
+              }
+            }
           }
         }
 
         // Use a backup image URL if imageUrl is invalid or null
         imageUrl = imageUrl || 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
-
+        
+        // Se for imagem de backup, registramos isso
+        if (isBackupImage || imageUrl.includes('placehold.co')) {
+          isBackupImage = true;
+        }
 
         // Verificar se a URL é válida
         const validImageUrl = imageUrl.startsWith('http') ? imageUrl : null;
@@ -126,22 +168,53 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         }
 
         // Pré-carregar a imagem com verificação de erros
-        const img = new window.Image();
-        img.onload = () => console.log("Imagem pré-carregada com sucesso:", imageUrl);
-        img.onerror = () => {
-          console.error("Erro ao pré-carregar imagem - URL inválida ou inacessível:", imageUrl);
-          // Fallback to backup image if preloading fails
-          console.log("Using backup image URL");
-          return { imageUrl: 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível', chapterIndex };
-        };
-        img.src = validImageUrl;
-
-        return { imageUrl, chapterIndex };
+        return new Promise((resolve) => {
+          const img = new window.Image();
+          
+          img.onload = () => {
+            console.log("Imagem pré-carregada com sucesso:", imageUrl);
+            resolve({ 
+              imageUrl, 
+              chapterIndex, 
+              isBackup: isBackupImage,
+              attemptedProviders
+            });
+          };
+          
+          img.onerror = () => {
+            console.error("Erro ao pré-carregar imagem - URL inválida ou inacessível:", imageUrl);
+            // Fallback to backup image if preloading fails
+            resolve({ 
+              imageUrl: 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível', 
+              chapterIndex,
+              isBackup: true 
+            });
+          };
+          
+          img.src = validImageUrl;
+          
+          // Timeout para não ficar esperando indefinidamente
+          setTimeout(() => {
+            if (!img.complete) {
+              console.warn("Timeout ao carregar imagem:", validImageUrl);
+              resolve({ 
+                imageUrl: 'https://placehold.co/600x400/FFDE59/333333?text=Tempo+excedido+ao+carregar', 
+                chapterIndex,
+                isBackup: true 
+              });
+            }
+          }, 10000); // 10 segundos de timeout
+        });
       } catch (error) {
         console.error("Erro ao gerar imagem:", error);
         // Use backup image on error
         console.log("Using backup image URL due to error:", error);
-        return { imageUrl: 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível', chapterIndex };
+        return { 
+          imageUrl: 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível', 
+          chapterIndex,
+          isBackup: true,
+          error: error instanceof Error ? error.message : String(error)
+        };
       } finally {
         setImageGenerating(false);
       }
@@ -361,14 +434,29 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
   };
 
   // Função para gerar ou regenerar a ilustração do capítulo atual
-  const generateCurrentChapterImage = () => {
+  const generateCurrentChapterImage = (preferredProvider?: string) => {
     if (!currentChapterContent) return;
+
+    // Preparar opções de geração
+    const options: any = {
+      style: "cartoon",
+      mood: "adventure",
+      ageGroup: story?.ageGroup,
+      storyId: storyId
+    };
+    
+    // Se um provedor preferido foi especificado, incluí-lo nas opções
+    if (preferredProvider) {
+      options.forceProvider = preferredProvider;
+      console.log(`Forçando geração com provedor: ${preferredProvider}`);
+    }
 
     generateImageMutation.mutate({
       chapterIndex: currentChapter,
       chapterTitle: currentChapterContent.title,
       chapterContent: currentChapterContent.content,
-      characterNames: getCharacterNames()
+      characterNames: getCharacterNames(),
+      options
     });
   };
 
@@ -465,13 +553,46 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
                       className="w-full h-auto object-cover rounded-sm"
                       onError={(e) => {
                         console.error("Erro ao carregar imagem:", currentChapterContent.imageUrl);
-                        e.currentTarget.src = 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
-                        e.currentTarget.alt = 'Imagem temporariamente indisponível';
+                        const isBackupImage = currentChapterContent.imageUrl?.includes('placehold.co') || false;
+                        
+                        if (isBackupImage) {
+                          // Já estamos usando uma imagem de backup, manter
+                          e.currentTarget.src = 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
+                          e.currentTarget.alt = 'Imagem temporariamente indisponível';
+                        } else {
+                          // Tentar regenerar a imagem automaticamente - apenas uma vez para evitar loop
+                          if (!e.currentTarget.dataset.retried) {
+                            console.log("Tentando regenerar a imagem que falhou...");
+                            e.currentTarget.dataset.retried = "true";
+                            
+                            // Timeout para evitar recarregamento imediato
+                            setTimeout(() => {
+                              // Tentar regenerar
+                              generateCurrentChapterImage();
+                            }, 500);
+                            
+                            // Enquanto isso, mostrar imagem de fallback
+                            e.currentTarget.src = 'https://placehold.co/600x400/e6f7ff/0066cc?text=Tentando+novamente...';
+                          } else {
+                            // Segunda falha, usar backup definitivo
+                            e.currentTarget.src = 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
+                            e.currentTarget.alt = 'Imagem temporariamente indisponível';
+                          }
+                        }
                       }}
                     />
                     <div className="absolute bottom-3 right-3 bg-white/60 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium text-blue-600">
                       Ilustração do capítulo
                     </div>
+                    {!currentChapterContent.imageUrl?.includes('placehold.co') && (
+                      <button 
+                        onClick={generateCurrentChapterImage}
+                        className="absolute top-3 right-3 bg-white/70 hover:bg-white/90 backdrop-blur-sm p-1.5 rounded-full text-blue-600 transition-all"
+                        title="Regenerar ilustração"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : !isTextOnlyMode && (imageGenerating || generateImageMutation.isPending) ? (
