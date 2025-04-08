@@ -88,7 +88,8 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           style: "cartoon",
           mood: "adventure",
           ageGroup: story?.ageGroup,
-          storyId: storyId
+          storyId: storyId,
+          forceProvider: "huggingface" // Definir HuggingFace como provedor preferido
         };
 
         console.log("Opções de geração:", imageOptions);
@@ -112,6 +113,12 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           credentials: 'include'
         });
 
+        // Verificar se a resposta HTTP foi bem-sucedida
+        if (!rawResponse.ok) {
+          console.error(`Erro HTTP: ${rawResponse.status} ${rawResponse.statusText}`);
+          throw new Error(`Erro na requisição: ${rawResponse.status} ${rawResponse.statusText}`);
+        }
+
         // Capturar o texto da resposta para debug
         const responseText = await rawResponse.text();
         console.log('Resposta bruta da API:', responseText);
@@ -121,6 +128,12 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         try {
           response = JSON.parse(responseText);
           console.log("Resposta da API de geração de imagem (parseada):", response);
+          
+          // Verificação adicional para garantir que a resposta contenha os dados necessários
+          if (!response || (response.success === false && !response.imageUrl)) {
+            console.error('Resposta indica falha:', response);
+            throw new Error('Falha na geração de imagem: ' + (response.message || 'Erro desconhecido'));
+          }
         } catch (e) {
           console.error('Falha ao converter resposta para JSON:', e);
           throw new Error('Resposta inválida do servidor: ' + responseText.substring(0, 200));

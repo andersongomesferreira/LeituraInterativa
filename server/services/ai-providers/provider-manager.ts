@@ -579,11 +579,12 @@ export class AIProviderManager {
 
     // Create a priority order for providers
     // First use specifically requested provider if available
+    // Then try HuggingFace as primary provider
     // Then try default provider
     // Then try the rest in order of historical success rate
     const priorityOrder: string[] = [];
     
-    // Add requested provider if specified
+    // Add requested provider if specified in options (forceProvider)
     if (params.provider && allowedProviderIds.includes(params.provider)) {
       const requestedProvider = this.providers.get(params.provider);
       if (requestedProvider && requestedProvider.capabilities.imageGeneration) {
@@ -592,18 +593,18 @@ export class AIProviderManager {
       }
     }
     
+    // Add huggingface FIRST if not already in list (highest priority unless explicitly overridden)
+    if (!priorityOrder.includes('huggingface') && allowedProviderIds.includes('huggingface')) {
+      priorityOrder.push('huggingface');
+      console.log(`Adding HuggingFace as highest priority provider`);
+    }
+    
     // Add default provider if not already in list
     if (this.routingConfig.defaultImageProvider && 
         !priorityOrder.includes(this.routingConfig.defaultImageProvider) &&
         allowedProviderIds.includes(this.routingConfig.defaultImageProvider)) {
       priorityOrder.push(this.routingConfig.defaultImageProvider);
       console.log(`Adding default provider ${this.routingConfig.defaultImageProvider} to priority queue`);
-    }
-    
-    // Add huggingface explicitly if not in list (it's usually the most reliable)
-    if (!priorityOrder.includes('huggingface') && allowedProviderIds.includes('huggingface')) {
-      priorityOrder.push('huggingface');
-      console.log(`Adding HuggingFace to priority queue`);
     }
     
     // Add all other providers ordered by success rate
@@ -666,6 +667,12 @@ export class AIProviderManager {
         } else if (providerId === 'huggingface' && (!params.model || params.model === 'dall-e-3')) {
           console.log(`Adapting model parameter for HuggingFace: setting default model`);
           adaptedParams.model = 'stable-diffusion-xl';
+          
+          // Adicionar parâmetros otimizados para HuggingFace
+          adaptedParams.width = adaptedParams.width || 768;
+          adaptedParams.height = adaptedParams.height || 768;
+          adaptedParams.steps = adaptedParams.steps || 30; // Mais steps para melhor qualidade
+          adaptedParams.guidance = adaptedParams.guidance || 7.5; // Guidance scale otimizado
         }
 
         // Attempt generation with this provider
