@@ -104,20 +104,19 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           imageUrl = response.imageUrl || response.url || 
                     (response.success && response.data?.imageUrl) ||
                     (response.data && response.data.imageUrl);
-          
+
           // Log detalhado da resposta para debug
           console.log("Resposta detalhada da API de imagens:", JSON.stringify(response, null, 2));
-          
+
           // Se temos isBackup=true na resposta, é uma imagem de fallback
           if (response.isBackup) {
             console.log("Imagem de backup detectada:", imageUrl);
           }
         }
 
-        if (!imageUrl) {
-          console.error("URL da imagem não encontrada na resposta:", response);
-          throw new Error("URL da imagem não encontrada na resposta");
-        }
+        // Use a backup image URL if imageUrl is invalid or null
+        imageUrl = imageUrl || 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
+
 
         // Verificar se a URL é válida
         const validImageUrl = imageUrl.startsWith('http') ? imageUrl : null;
@@ -131,14 +130,18 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         img.onload = () => console.log("Imagem pré-carregada com sucesso:", imageUrl);
         img.onerror = () => {
           console.error("Erro ao pré-carregar imagem - URL inválida ou inacessível:", imageUrl);
-          throw new Error("Não foi possível carregar a imagem");
+          // Fallback to backup image if preloading fails
+          console.log("Using backup image URL");
+          return { imageUrl: 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível', chapterIndex };
         };
         img.src = validImageUrl;
 
         return { imageUrl, chapterIndex };
       } catch (error) {
         console.error("Erro ao gerar imagem:", error);
-        throw error;
+        // Use backup image on error
+        console.log("Using backup image URL due to error:", error);
+        return { imageUrl: 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível', chapterIndex };
       } finally {
         setImageGenerating(false);
       }
@@ -149,25 +152,25 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         console.error('URL de imagem inválida recebida:', imageUrl);
         return;
       }
-      
+
       console.log('URL de imagem original recebida:', imageUrl);
-      
+
       // Processar a URL da imagem para garantir formato correto
       let processedUrl = imageUrl;
-      
+
       // Se imageUrl é um objeto, extrair a URL real
       if (typeof processedUrl === 'object') {
         console.log('imageUrl é um objeto:', processedUrl);
         // @ts-ignore - Tentar extrair a URL de várias propriedades possíveis
         processedUrl = processedUrl.url || processedUrl.imageUrl || processedUrl.src || '';
       }
-      
+
       // Verificar se temos uma URL válida após a extração
       if (!processedUrl || typeof processedUrl !== 'string') {
         console.error('Não foi possível extrair uma URL válida:', processedUrl);
         return;
       }
-      
+
       // Adicionar timestamp à URL da imagem para evitar cache
       processedUrl = processedUrl.includes('?') ? 
         `${processedUrl}&t=${Date.now()}` : 
@@ -178,7 +181,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         console.log('URL sem extensão de imagem, adicionando parâmetro content-type');
         processedUrl += '&content-type=image/png';
       }
-      
+
       // Log da URL processada
       console.log('URL de imagem processada:', processedUrl);
 
@@ -191,9 +194,9 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
             ...updatedChapters[chapterIndex],
             imageUrl: processedUrl
           };
-          
+
           console.log(`Cache atualizado para o capítulo ${chapterIndex}:`, processedUrl);
-          
+
           return {
             ...oldData,
             chapters: updatedChapters
@@ -462,8 +465,8 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
                       className="w-full h-auto object-cover rounded-sm"
                       onError={(e) => {
                         console.error("Erro ao carregar imagem:", currentChapterContent.imageUrl);
-                        e.currentTarget.src = 'https://placehold.co/600x400/FFDE59/333333?text=Ilustração+não+disponível';
-                        e.currentTarget.alt = 'Ilustração não disponível';
+                        e.currentTarget.src = 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
+                        e.currentTarget.alt = 'Imagem temporariamente indisponível';
                       }}
                     />
                     <div className="absolute bottom-3 right-3 bg-white/60 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium text-blue-600">
