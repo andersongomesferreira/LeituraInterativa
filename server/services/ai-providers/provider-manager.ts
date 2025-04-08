@@ -598,6 +598,14 @@ export class AIProviderManager {
       // Inserir no início da lista para garantir que seja o primeiro provedor a ser tentado
       priorityOrder.unshift('huggingface');
       console.log(`Adding HuggingFace as highest priority provider (first position)`);
+      
+      // Verificar se o provider HuggingFace está disponível
+      const huggingfaceProvider = this.providers.get('huggingface');
+      if (huggingfaceProvider) {
+        console.log(`HuggingFace provider status: available=${huggingfaceProvider.status.isAvailable}, message=${huggingfaceProvider.status.statusMessage || 'none'}`);
+      } else {
+        console.warn('HuggingFace provider not found in providers map');
+      }
     }
     
     // Add default provider if not already in list

@@ -103,70 +103,64 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
 
         console.log("Enviando requisição para API de geração de imagem:", payload);
 
-        // Usar fetch diretamente para ter acesso à resposta completa
-        const rawResponse = await fetch('/api/stories/generateChapterImage', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-          credentials: 'include'
-        });
-
-        // Verificar se a resposta HTTP foi bem-sucedida
-        if (!rawResponse.ok) {
-          console.error(`Erro HTTP: ${rawResponse.status} ${rawResponse.statusText}`);
-          throw new Error(`Erro na requisição: ${rawResponse.status} ${rawResponse.statusText}`);
-        }
-
-        // Capturar o texto da resposta para debug
-        const responseText = await rawResponse.text();
-        console.log('Resposta bruta da API:', responseText);
-
-        // Tentar converter a resposta em JSON
-        let response;
-        try {
-          response = JSON.parse(responseText);
-          console.log("Resposta da API de geração de imagem (parseada):", response);
-
-          // Verificação adicional para garantir que a resposta contenha os dados necessários
-          if (!response || (response.success === false && !response.imageUrl)) {
-            console.error('Resposta indica falha:', response);
-            throw new Error('Falha na geração de imagem: ' + (response.message || 'Erro desconhecido'));
-          }
-        } catch (e) {
-          console.error('Falha ao converter resposta para JSON:', e);
-          throw new Error('Resposta inválida do servidor: ' + responseText.substring(0, 200));
+        console.log("Preparando payload para requisição:", JSON.stringify(payload, null, 2));
+        
+        // Usar apiRequest para ter um tratamento mais consistente
+        const response = await apiRequest("POST", "/api/stories/generateChapterImage", payload);
+        
+        console.log("Resposta da API de geração de imagem:", JSON.stringify(response, null, 2));
+        
+        // Verificação adicional para garantir que a resposta contenha os dados necessários
+        if (!response || (response.success === false && !response.imageUrl)) {
+          console.error('Resposta indica falha:', response);
+          throw new Error('Falha na geração de imagem: ' + (response.message || 'Erro desconhecido'));
         }
 
         // Extrair a URL da imagem
         let imageUrl = null;
         let isBackupImage = false;
         let attemptedProviders: string[] = [];
+        
+        console.log("Processando resposta para extrair URL da imagem...");
 
         if (typeof response === 'string') {
+          console.log("Resposta é uma string, usando como URL diretamente:", response);
           imageUrl = response;
         } else if (typeof response === 'object') {
+          // Log completo para diagnóstico
+          console.log("Resposta completa do servidor:", JSON.stringify(response, null, 2));
+          
           // Extrair a URL da imagem de várias localizações possíveis na resposta
-          imageUrl = response.imageUrl || 
-                    response.url || 
-                    (response.success && response.data?.imageUrl) ||
-                    (response.data && response.data.imageUrl);
+          if (response.imageUrl) {
+            console.log("URL encontrada em response.imageUrl:", response.imageUrl);
+            imageUrl = response.imageUrl;
+          } else if (response.url) {
+            console.log("URL encontrada em response.url:", response.url);
+            imageUrl = response.url;
+          } else if (response.success && response.data?.imageUrl) {
+            console.log("URL encontrada em response.data.imageUrl:", response.data.imageUrl);
+            imageUrl = response.data.imageUrl;
+          } else if (response.data && response.data.imageUrl) {
+            console.log("URL encontrada em response.data.imageUrl:", response.data.imageUrl);
+            imageUrl = response.data.imageUrl;
+          } else {
+            console.warn("URL da imagem não encontrada na resposta");
+          }
 
           // Verificar se é imagem de backup
           isBackupImage = !!response.isBackup;
+          if (isBackupImage) {
+            console.log("Resposta indica que esta é uma imagem de backup");
+          }
 
           // Extrair quais provedores foram tentados
           if (response.attemptedProviders && Array.isArray(response.attemptedProviders)) {
             attemptedProviders = response.attemptedProviders;
+            console.log("Provedores tentados:", attemptedProviders.join(', '));
           }
-
-          // Log detalhado da resposta para debug
-          console.log("Resposta detalhada da API de imagens:", JSON.stringify(response, null, 2));
 
           if (isBackupImage) {
             console.log("Imagem de backup detectada:", imageUrl);
-            console.log("Provedores tentados:", attemptedProviders.join(', '));
 
             // Se já tentamos com alguns provedores específicos, podemos tentar com outros
             if (attemptedProviders.length > 0) {
@@ -174,7 +168,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
               const remainingOptions = possibleAlternatives.filter(p => !attemptedProviders.includes(p));
 
               if (remainingOptions.length > 0) {
-                console.log(`Tentativas automáticas falharam. Existem ${remainingOptions.length} provedores alternativos disponíveis.`);
+                console.log(`Tentativas automáticas falharam. Existem ${remainingOptions.length} provedores alternativos disponíveis: ${remainingOptions.join(', ')}`);
               }
             }
           }
