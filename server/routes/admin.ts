@@ -219,8 +219,10 @@ router.post('/test-image-generation', isAdmin, async (req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     
-    // Adicionar headers de cache para melhorar desempenho
-    res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 dia
+    // Desativar cache para garantir que a imagem seja sempre carregada do servidor
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     
     // Verificar se a URL da imagem é válida e adicionar query param para evitar cache se necessário
     let imageUrl = result.imageUrl;

@@ -105,13 +105,31 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
     },
     onSuccess: ({ response, chapterIndex }) => {
       if (response && 'imageUrl' in response) {
+        // Adicionar timestamp à URL da imagem para evitar cache
+        let imageUrl = response.imageUrl;
+        const timestampedUrl = imageUrl.includes('?') ? 
+          `${imageUrl}&t=${Date.now()}` : 
+          `${imageUrl}?t=${Date.now()}`;
+          
+        // Verificar se a URL tem extensão de imagem
+        if (!timestampedUrl.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i)) {
+          console.log('URL sem extensão de imagem, adicionando parâmetro content-type');
+          imageUrl = timestampedUrl + '&content-type=image/png';
+        } else {
+          imageUrl = timestampedUrl;
+        }
+        
+        // Pré-carregar a imagem
+        const img = new Image();
+        img.src = imageUrl;
+        
         // Atualizar o cache do TanStack Query para incluir a nova URL da imagem
         queryClient.setQueryData([`/api/stories/${storyId}`], (oldData: any) => {
           if (oldData && oldData.chapters && oldData.chapters[chapterIndex]) {
             const updatedChapters = [...oldData.chapters];
             updatedChapters[chapterIndex] = {
               ...updatedChapters[chapterIndex],
-              imageUrl: response.imageUrl
+              imageUrl: imageUrl
             };
             
             return {

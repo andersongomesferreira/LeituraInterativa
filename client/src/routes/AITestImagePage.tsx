@@ -74,7 +74,7 @@ const AITestImagePage: React.FC = () => {
     const fetchProviders = async () => {
       try {
         setLoadingProviders(true);
-        
+
         // Verifique a autenticação primeiro
         try {
           const authStatus = await apiRequest('GET', '/api/auth/status');
@@ -85,23 +85,23 @@ const AITestImagePage: React.FC = () => {
               description: "Você precisa estar logado como administrador para acessar esta página.",
               variant: "destructive"
             });
-            
+
             // Redirecionar para a página de login
             setTimeout(() => {
               window.location.href = '/login?redirect=/admin/ai-test/image';
             }, 2000);
-            
+
             return;
           }
         } catch (authError) {
           console.error('Erro ao verificar autenticação:', authError);
         }
-        
+
         const response = await apiRequest('GET', '/api/admin/ai-providers/status');
-        
+
         if (response.success && response.providers) {
           setProviders(response.providers);
-          
+
           // Se o provedor atual não estiver disponível, selecione o primeiro disponível
           const currentProviderInfo = response.providers.find((p: ProviderInfo) => p.id === provider);
           if (!currentProviderInfo || currentProviderInfo.status !== 'online') {
@@ -153,7 +153,7 @@ const AITestImagePage: React.FC = () => {
   // Encontrar o status do provedor selecionado
   const selectedProviderInfo = providers.find(p => p.id === provider);
   const isProviderOnline = selectedProviderInfo?.status === 'online';
-  
+
   // Mensagem personalizada com base no status do provedor
   const getProviderStatusMessage = (status: ProviderStatus) => {
     switch (status) {
@@ -217,7 +217,7 @@ const AITestImagePage: React.FC = () => {
     setLoading(true);
     setGeneratedImage(null);
     setImageError(null);
-    
+
     // Preparar os dados da requisição
     const requestData = {
       prompt,
@@ -226,18 +226,18 @@ const AITestImagePage: React.FC = () => {
       model,
       style
     };
-    
+
     // Armazenar os detalhes da requisição para debug
     setRequestDetails(requestData);
 
     try {
       // Fazer a requisição à API
       console.log('Enviando requisição:', requestData);
-      
+
       // Adicionar um interceptor temporário para capturar a resposta bruta
       let rawResponse: Response;
       let responseText: string;
-      
+
       try {
         // Usar fetch diretamente para ter acesso à resposta completa
         rawResponse = await fetch('/api/admin/test-image-generation', {
@@ -248,16 +248,16 @@ const AITestImagePage: React.FC = () => {
           body: JSON.stringify(requestData),
           credentials: 'include'
         });
-        
+
         // Capturar o texto da resposta
         responseText = await rawResponse.text();
-        
+
         // Debug: mostra o status e response headers no console
         console.log('Response status:', rawResponse.status, rawResponse.statusText);
         console.log('Response headers:', Object.fromEntries(rawResponse.headers.entries()));
         console.log('Response raw content-type:', rawResponse.headers.get('content-type'));
         console.log('Resposta bruta (primeiros 500 caracteres):', responseText.substring(0, 500));
-        
+
         // Tentar converter a resposta em JSON
         let jsonResponse;
         try {
@@ -271,7 +271,7 @@ const AITestImagePage: React.FC = () => {
             rawResponse: responseText 
           };
         }
-        
+
         // Armazenar os detalhes da resposta
         setResponseDetails({
           status: rawResponse.status,
@@ -280,13 +280,13 @@ const AITestImagePage: React.FC = () => {
           body: jsonResponse,
           raw: responseText
         });
-        
+
         // Check if the response has imageUrl directly at top level (new format)
         // or nested in a data property (old format)
         if (rawResponse.ok && jsonResponse.success) {
           // Direct imageUrl (new format) or nested in data (old format)
           const imageUrl = jsonResponse.imageUrl || (jsonResponse.data && jsonResponse.data.imageUrl);
-          
+
           if (imageUrl) {
             console.log('Imagem URL recebida:', imageUrl);
             setGeneratedImage(imageUrl);
@@ -448,7 +448,7 @@ const AITestImagePage: React.FC = () => {
               >
                 {loading ? 'Gerando...' : 'Gerar Imagem'}
               </Button>
-              
+
               {!isProviderOnline && (
                 <div className="text-amber-600 text-sm p-2 bg-amber-50 rounded">
                   <div className="flex items-center">
@@ -480,16 +480,18 @@ const AITestImagePage: React.FC = () => {
                 <div className="flex flex-col items-center">
                   <div className="relative w-full max-w-md">
                     <img 
-                      src={generatedImage} 
+                      src={`${generatedImage}?t=${Date.now()}`} 
                       alt="Imagem gerada" 
                       className="max-w-full max-h-[400px] rounded-lg shadow-md object-contain mx-auto"
                       crossOrigin="anonymous"
+                      onLoad={() => console.log('Imagem carregada com sucesso')}
                       onError={(e) => {
                         console.error('Erro ao carregar a imagem:', e);
                         // Adiciona um timestamp para evitar cache
                         const target = e.target as HTMLImageElement;
-                        if (!target.src.includes('?')) {
-                          target.src = `${generatedImage}?t=${Date.now()}`;
+                        if (!target.src.includes('fallback')) {
+                          console.log('Tentando recarregar imagem com novo timestamp');
+                          target.src = `${generatedImage}?t=${Date.now() + 1000}`;
                         } else if (!target.src.includes('fallback')) {
                           // Se já tentou recarregar e falhou, mostra imagem de fallback
                           target.src = 'https://placehold.co/600x400/FFDE59/333333?text=Erro+ao+carregar+imagem&fallback=true';
@@ -536,7 +538,7 @@ const AITestImagePage: React.FC = () => {
             <Separator className="my-8" />
             <div className="space-y-6">
               <h2 className="text-2xl font-bold">Informações de Depuração</h2>
-              
+
               {requestDetails && (
                 <Card>
                   <CardHeader>
@@ -549,7 +551,7 @@ const AITestImagePage: React.FC = () => {
                   </CardContent>
                 </Card>
               )}
-              
+
               {responseDetails && (
                 <Card>
                   <CardHeader>
@@ -566,14 +568,14 @@ const AITestImagePage: React.FC = () => {
                           {JSON.stringify(responseDetails.headers, null, 2)}
                         </pre>
                       </div>
-                      
+
                       <div>
                         <h3 className="font-medium mb-2">Corpo da Resposta:</h3>
                         <pre className="bg-gray-100 p-4 rounded-md overflow-auto max-h-60 text-xs">
                           {JSON.stringify(responseDetails.body, null, 2)}
                         </pre>
                       </div>
-                      
+
                       <div>
                         <h3 className="font-medium mb-2">Resposta Raw:</h3>
                         <pre className="bg-gray-100 p-4 rounded-md overflow-auto max-h-60 text-xs">
@@ -592,4 +594,4 @@ const AITestImagePage: React.FC = () => {
   );
 };
 
-export default AITestImagePage; 
+export default AITestImagePage;
