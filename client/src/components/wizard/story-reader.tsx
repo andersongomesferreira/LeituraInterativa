@@ -55,13 +55,13 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
   const { data: story, isLoading } = useQuery<Story>({
     queryKey: [`/api/stories/${storyId}`]
   });
-  
+
   // Fetch characters
   const { data: characters = [] } = useQuery<Character[]>({
     queryKey: ["/api/characters"],
     enabled: !!story,
   });
-  
+
   // Mutation para gerar ilustração para um capítulo
   const generateImageMutation = useMutation({
     mutationFn: async ({ chapterIndex, chapterTitle, chapterContent, characterNames }: { 
@@ -71,11 +71,11 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
       characterNames: string[]
     }) => {
       setImageGenerating(true);
-      
+
       try {
         console.log(`Gerando imagem para capítulo "${chapterTitle}" (índice ${chapterIndex})`);
         console.log(`Personagens: ${characterNames.join(', ')}`);
-          
+
         const payload = {
           chapterTitle,
           chapterContent,
@@ -87,14 +87,14 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
             storyId: storyId
           }
         };
-        
+
         console.log("Enviando requisição para API de geração de imagem:", payload);
-        
+
         // Usar a rota existente que restauramos para compatibilidade
         const response = await apiRequest("POST", "/api/stories/generateChapterImage", payload);
-        
+
         console.log("Resposta da API de geração de imagem:", response);
-        
+
         return { response, chapterIndex };
       } catch (error) {
         console.error("Erro ao gerar imagem:", error);
@@ -110,7 +110,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         const timestampedUrl = imageUrl.includes('?') ? 
           `${imageUrl}&t=${Date.now()}` : 
           `${imageUrl}?t=${Date.now()}`;
-          
+
         // Verificar se a URL tem extensão de imagem
         if (!timestampedUrl.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i)) {
           console.log('URL sem extensão de imagem, adicionando parâmetro content-type');
@@ -118,11 +118,11 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         } else {
           imageUrl = timestampedUrl;
         }
-        
+
         // Pré-carregar a imagem
         const img = new Image();
         img.src = imageUrl;
-        
+
         // Atualizar o cache do TanStack Query para incluir a nova URL da imagem
         queryClient.setQueryData([`/api/stories/${storyId}`], (oldData: any) => {
           if (oldData && oldData.chapters && oldData.chapters[chapterIndex]) {
@@ -131,7 +131,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
               ...updatedChapters[chapterIndex],
               imageUrl: imageUrl
             };
-            
+
             return {
               ...oldData,
               chapters: updatedChapters
@@ -139,7 +139,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           }
           return oldData;
         });
-        
+
         toast({
           title: "Ilustração gerada",
           description: "A ilustração para este capítulo foi criada com sucesso!",
@@ -154,17 +154,17 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
       });
     }
   });
-  
+
   // Mutation para gerar todas as ilustrações de uma história
   const generateAllIllustrationsMutation = useMutation({
     mutationFn: async () => {
       if (!story) throw new Error("História não disponível");
-      
+
       toast({
         title: "Gerando ilustrações",
         description: "Estamos criando ilustrações para todos os capítulos. Isso pode levar alguns instantes.",
       });
-      
+
       const response = await apiRequest("POST", `/api/stories/${storyId}/generateIllustrations`, {
         options: {
           style: "cartoon",
@@ -172,7 +172,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           ageGroup: story.ageGroup
         }
       });
-      
+
       return response as any;
     },
     onSuccess: (response) => {
@@ -187,7 +187,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           }
           return oldData;
         });
-        
+
         toast({
           title: "Ilustrações geradas",
           description: `${response.successfulIllustrations || 0} de ${response.totalChapters || 0} ilustrações foram criadas com sucesso!`,
@@ -207,12 +207,12 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
   const updateSessionMutation = useMutation({
     mutationFn: async (data: { progress: number; completed: boolean }) => {
       if (!childId) return null;
-      
+
       // Check if session exists first
       const response = await fetch(`/api/reading-sessions/child/${childId}`);
       const sessions = await response.json();
       const existingSession = sessions.find((s: any) => s.storyId === storyId);
-      
+
       if (existingSession) {
         return apiRequest("PATCH", `/api/reading-sessions/${existingSession.id}`, data);
       } else {
@@ -233,16 +233,16 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
       setProgress(initialProgress);
     }
   }, [story, currentChapter]);
-  
+
   // Compute if we're in text-only mode (either from props or story data)
   const isTextOnlyMode = propTextOnly || story?.textOnly || false;
-  
+
   // Auto-generate illustrations when story loads (if not in text-only mode)
   useEffect(() => {
     if (story && !isTextOnlyMode && !generateAllIllustrationsMutation.isPending) {
       // Check if any chapters need illustrations
       const needsIllustrations = story.chapters?.some(chapter => !chapter.imageUrl);
-      
+
       if (needsIllustrations) {
         console.log("Iniciando geração automática de ilustrações para todos os capítulos");
         generateAllIllustrationsMutation.mutate();
@@ -256,7 +256,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
       setCurrentChapter(currentChapter + 1);
       const newProgress = Math.floor(((currentChapter + 1) / (story.chapters.length - 1)) * 100);
       setProgress(newProgress);
-      
+
       if (childId) {
         updateSessionMutation.mutate({
           progress: newProgress,
@@ -299,7 +299,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
   // Função para gerar ou regenerar a ilustração do capítulo atual
   const generateCurrentChapterImage = () => {
     if (!currentChapterContent) return;
-    
+
     generateImageMutation.mutate({
       chapterIndex: currentChapter,
       chapterTitle: currentChapterContent.title,
@@ -337,7 +337,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
               )}
             </div>
           </div>
-          
+
           {/* Star decorations */}
           <div className="absolute top-3 right-3 text-yellow-400">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -349,7 +349,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.799-2.034c-.784-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
             </svg>
           </div>
-          
+
           {/* Progress bar with storybook style */}
           <div className="mt-4 relative">
             <div className="h-4 w-full bg-white rounded-full border-2 border-blue-300 shadow-inner overflow-hidden">
@@ -364,7 +364,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
             </div>
           </div>
         </div>
-        
+
         {/* Chapter content with storybook style */}
         <div className="p-6 md:p-8 bg-gradient-to-b from-white to-blue-50 min-h-[40vh]">
           {currentChapterContent && (
@@ -374,7 +374,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
               <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-blue-200 rounded-tr-lg -m-2"></div>
               <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-blue-200 rounded-bl-lg -m-2"></div>
               <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-blue-200 rounded-br-lg -m-2"></div>
-              
+
               {/* Chapter title with decoration */}
               <div className="mb-5 relative">
                 <h2 className="text-xl md:text-2xl font-bold text-blue-600 font-heading inline-block relative">
@@ -389,7 +389,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
                   </div>
                 )}
               </div>
-              
+
               {/* Image display with frame */}
               {!isTextOnlyMode && currentChapterContent.imageUrl ? (
                 <div className="mb-8 relative">
@@ -431,7 +431,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
                   </div>
                 </div>
               ) : null}
-              
+
               {/* Story content with styled paragraphs */}
               <div className="font-reading text-lg space-y-5 leading-relaxed text-slate-700 bg-white/50 p-5 rounded-lg border border-blue-100 shadow-inner">
                 {currentChapterContent.content.split("\n\n").map((paragraph, index) => (
@@ -443,7 +443,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
             </div>
           )}
         </div>
-        
+
         {/* Navigation with storybook style buttons */}
         <div className="bg-gradient-to-r from-blue-100 via-purple-100 to-pink-100 p-6 border-t-2 border-blue-200 flex justify-between">
           <Button
@@ -454,7 +454,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           >
             <ChevronLeft className="mr-2 h-4 w-4" /> Capítulo Anterior
           </Button>
-          
+
           {currentChapter === chapters.length - 1 ? (
             <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-md font-medium" asChild>
               <Link href="/stories">
@@ -471,7 +471,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           )}
         </div>
       </div>
-      
+
       {/* Story information card with storybook style */}
       <div className="mt-8 border-2 border-blue-200 rounded-xl p-6 bg-gradient-to-r from-blue-50 to-purple-50 shadow-md">
         <h3 className="text-lg font-bold mb-3 text-blue-600 font-heading flex items-center">

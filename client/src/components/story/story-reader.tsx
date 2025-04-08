@@ -8,7 +8,7 @@ const generateCurrentChapterImage = async () => {
 
   try {
     console.log(`Gerando imagem para capítulo atual: ${chapter.title}`);
-    
+
     // Use a rota antiga que restauramos no servidor (compatibilidade)
     const response = await apiRequest(
       "POST",
@@ -24,43 +24,52 @@ const generateCurrentChapterImage = async () => {
         }
       }
     );
-    
+
     console.log("Resposta da geração de imagem:", response);
 
-    if (response.success && response.imageUrl) {
-      // Criar uma cópia dos capítulos atuais
+    // Extrair a URL da imagem de diferentes formatos de resposta
+    let imageUrl = null;
+
+    if (typeof response === 'string') {
+      imageUrl = response;
+    } else if (typeof response === 'object') {
+      imageUrl = response.imageUrl || response.url || 
+                (response.success && response.data?.imageUrl);
+    }
+
+    if (imageUrl) {
       const updatedChapters = [...chapters];
       updatedChapters[currentChapter] = {
         ...updatedChapters[currentChapter],
-        imageUrl: response.imageUrl
+        imageUrl: imageUrl
       };
-      
+
       // Atualizar o estado dos capítulos com a nova imagem
       setChapters(updatedChapters);
-      
+
       // Registrar a atualização no servidor (opcional, se tiver uma API para isso)
       try {
         await apiRequest(
           "PUT",
           `/api/stories/${storyId}/chapters/${currentChapter}`,
-          { imageUrl: response.imageUrl }
+          { imageUrl: imageUrl }
         );
         console.log("Imagem salva no servidor com sucesso");
       } catch (saveError) {
         console.error("Erro ao salvar imagem no servidor:", saveError);
         // Continue mesmo se falhar o salvamento no servidor
       }
-      
+
       toast({
-        title: "Ilustração gerada com sucesso",
-        description: "A ilustração para este capítulo foi criada.",
+        title: "Ilustração criada!",
+        description: "A imagem para este capítulo foi gerada com sucesso.",
         variant: "default",
       });
     } else {
-      console.error("Erro na resposta da geração de imagem:", response);
+      console.error("Resposta sem URL de imagem:", response);
       toast({
         title: "Erro ao gerar ilustração",
-        description: response.message || "Não foi possível criar a ilustração.",
+        description: "Não foi possível obter a URL da imagem.",
         variant: "destructive",
       });
     }
@@ -74,4 +83,4 @@ const generateCurrentChapterImage = async () => {
   } finally {
     setIsGeneratingImage(false);
   }
-}; 
+};
