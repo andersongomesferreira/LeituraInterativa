@@ -62,34 +62,6 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
     enabled: !!story,
   });
 
-  // Lista de provedores e modelos disponíveis para tentar em ordem de prioridade
-  const imageProviders = [
-    { provider: "getimg", model: "getimg-model", style: "cartoon" },
-    { provider: "openai", model: "dall-e-3", style: "cartoon" },
-    { provider: "runware", model: "stable-diffusion-xl", style: "cartoon" },
-    { provider: "getimg", model: "getimg-model", style: "watercolor" },
-    { provider: "openai", model: "dall-e-3", style: "digital" },
-    { provider: "runware", model: "stable-diffusion-xl", style: "realistic" },
-    { provider: "openai", model: "dall-e-2", style: "cartoon" },
-    { provider: "runware", model: "stable-diffusion", style: "cartoon" },
-    { provider: "runware", model: "stable-diffusion", style: "watercolor" },
-    { provider: "getimg", model: "getimg-model", style: "realistic" }
-  ];
-
-  // Estado para rastrear tentativas de geração de imagem
-  const [currentAttempts, setCurrentAttempts] = useState<Record<number, number>>({});
-  const [maxAttempts] = useState(imageProviders.length);
-
-  // Função para obter os nomes dos personagens a partir dos IDs
-  const getCharacterNames = () => {
-    return (story?.characterIds || [])
-      .map(id => {
-        const character = characters.find(c => c.id === id);
-        return character ? character.name.split(",")[0] : "";
-      })
-      .filter(name => name.length > 0);
-  };
-
   interface ChapterImageParams {
     chapterIndex: number, 
     chapterTitle: string, 
@@ -465,43 +437,62 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
       if (!childId) return null;
 
       // Check if session exists first
-      const response = await apiRequest('GET', `/api/children/${childId}/sessions?storyId=${storyId}`);
+      const response = await fetch(`/api/reading-sessions/child/${childId}`);
       const sessions = await response.json();
+      const existingSession = sessions.find((s: any) => s.storyId === storyId);
 
-      if (sessions && sessions.length > 0) {
-        // Update existing session
-        const sessionId = sessions[0].id;
-        return apiRequest('PATCH', `/api/reading-sessions/${sessionId}`, data);
+      if (existingSession) {
+        // Mudar PATCH para PUT que é suportado pelo apiRequest
+        return apiRequest("PUT", `/api/reading-sessions/${existingSession.id}`, data);
       } else {
-        // Create new session
-        return apiRequest('POST', '/api/reading-sessions', {
+        return apiRequest("POST", "/api/reading-sessions", {
           childId,
           storyId,
-          progress: data.progress,
-          completed: data.completed,
+          ...data,
         });
       }
     },
   });
 
-  // Update progress when chapter changes
+  // Set up chapters from the story
   useEffect(() => {
-    if (story && story.chapters) {
+    if (story?.chapters && story.chapters.length > 0) {
       const totalChapters = Math.max(1, story.chapters.length - 1);
-      const newProgress = Math.floor((currentChapter / totalChapters) * 100);
-      setProgress(newProgress);
-
-      if (childId) {
-        updateSessionMutation.mutate({
-          progress: newProgress,
-          completed: newProgress === 100,
-        });
-      }
+      const initialProgress = Math.floor((currentChapter / totalChapters) * 100);
+      setProgress(initialProgress);
     }
   }, [story, currentChapter]);
 
   // Compute if we're in text-only mode (either from props or story data)
   const isTextOnlyMode = propTextOnly || story?.textOnly || false;
+
+  // Lista de provedores e modelos disponíveis para tentar em ordem de prioridade
+  const imageProviders = [
+    { provider: "getimg", model: "getimg-model", style: "cartoon" },
+    { provider: "openai", model: "dall-e-3", style: "cartoon" },
+    { provider: "runware", model: "stable-diffusion-xl", style: "cartoon" },
+    { provider: "getimg", model: "getimg-model", style: "watercolor" },
+    { provider: "openai", model: "dall-e-3", style: "digital" },
+    { provider: "runware", model: "stable-diffusion-xl", style: "realistic" },
+    { provider: "openai", model: "dall-e-2", style: "cartoon" },
+    { provider: "runware", model: "stable-diffusion", style: "cartoon" },
+    { provider: "runware", model: "stable-diffusion", style: "watercolor" },
+    { provider: "getimg", model: "getimg-model", style: "realistic" }
+  ];
+
+  // Estado para rastrear tentativas de geração de imagem
+  const [currentAttempts, setCurrentAttempts] = useState<Record<number, number>>({});
+  const [maxAttempts] = useState(imageProviders.length);
+
+  // Função para obter os nomes dos personagens a partir dos IDs
+  const getCharacterNames = () => {
+    return (story?.characterIds || [])
+      .map(id => {
+        const character = characters.find(c => c.id === id);
+        return character ? character.name.split(",")[0] : "";
+      })
+      .filter(name => name.length > 0);
+  };
 
   // Auto-generate illustrations when story loads (if not in text-only mode)
   // Função para gerar imagem para um capítulo específico

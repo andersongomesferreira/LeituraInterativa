@@ -24,30 +24,24 @@ const CallToAction = () => {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           {authStatus?.isAuthenticated ? (
             <Button 
-              asChild
               className="bg-white text-primary hover:bg-neutral-100 px-8 py-4 rounded-full font-heading font-bold text-lg transition-colors"
+              onClick={() => window.location.href = "/story/create"}
             >
-              <Link href="/story/create">
-                <a>Criar História</a>
-              </Link>
+              Criar História
             </Button>
           ) : (
             <Button 
-              asChild
               className="bg-white text-primary hover:bg-neutral-100 px-8 py-4 rounded-full font-heading font-bold text-lg transition-colors"
+              onClick={() => window.location.href = "/register"}
             >
-              <Link href="/register">
-                <a>Criar Conta Gratuita</a>
-              </Link>
+              Criar Conta Gratuita
             </Button>
           )}
           <Button 
-            asChild
             className="bg-accent text-neutral-800 hover:bg-accent-dark px-8 py-4 rounded-full font-heading font-bold text-lg transition-colors"
+            onClick={() => window.location.href = "/examples"}
           >
-            <Link href="/story/create">
-              <a>Ver Exemplos de Histórias</a>
-            </Link>
+            Ver Exemplos de Histórias
           </Button>
         </div>
         
