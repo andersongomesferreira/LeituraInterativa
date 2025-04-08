@@ -595,8 +595,9 @@ export class AIProviderManager {
     
     // Add huggingface FIRST if not already in list (highest priority unless explicitly overridden)
     if (!priorityOrder.includes('huggingface') && allowedProviderIds.includes('huggingface')) {
-      priorityOrder.push('huggingface');
-      console.log(`Adding HuggingFace as highest priority provider`);
+      // Inserir no início da lista para garantir que seja o primeiro provedor a ser tentado
+      priorityOrder.unshift('huggingface');
+      console.log(`Adding HuggingFace as highest priority provider (first position)`);
     }
     
     // Add default provider if not already in list

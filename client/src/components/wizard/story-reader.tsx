@@ -82,7 +82,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
       try {
         console.log(`Gerando imagem para capítulo "${chapterTitle}" (índice ${chapterIndex})`);
         console.log(`Personagens: ${characterNames.join(', ')}`);
-        
+
         // Opções padrão se não forem fornecidas
         const imageOptions = options || {
           style: "cartoon",
@@ -128,7 +128,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         try {
           response = JSON.parse(responseText);
           console.log("Resposta da API de geração de imagem (parseada):", response);
-          
+
           // Verificação adicional para garantir que a resposta contenha os dados necessários
           if (!response || (response.success === false && !response.imageUrl)) {
             console.error('Resposta indica falha:', response);
@@ -155,7 +155,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
 
           // Verificar se é imagem de backup
           isBackupImage = !!response.isBackup;
-          
+
           // Extrair quais provedores foram tentados
           if (response.attemptedProviders && Array.isArray(response.attemptedProviders)) {
             attemptedProviders = response.attemptedProviders;
@@ -163,16 +163,16 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
 
           // Log detalhado da resposta para debug
           console.log("Resposta detalhada da API de imagens:", JSON.stringify(response, null, 2));
-          
+
           if (isBackupImage) {
             console.log("Imagem de backup detectada:", imageUrl);
             console.log("Provedores tentados:", attemptedProviders.join(', '));
-            
+
             // Se já tentamos com alguns provedores específicos, podemos tentar com outros
             if (attemptedProviders.length > 0) {
               const possibleAlternatives = ['openai', 'huggingface', 'stability', 'replicate'];
               const remainingOptions = possibleAlternatives.filter(p => !attemptedProviders.includes(p));
-              
+
               if (remainingOptions.length > 0) {
                 console.log(`Tentativas automáticas falharam. Existem ${remainingOptions.length} provedores alternativos disponíveis.`);
               }
@@ -186,7 +186,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           imageUrl = 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
           isBackupImage = true;
         }
-        
+
         // Se for imagem de backup, registramos isso
         if (isBackupImage || imageUrl.includes('placehold.co')) {
           isBackupImage = true;
@@ -202,7 +202,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         // Pré-carregar a imagem com verificação de erros
         return new Promise((resolve) => {
           const img = new window.Image();
-          
+
           img.onload = () => {
             console.log("Imagem pré-carregada com sucesso:", imageUrl);
             resolve({ 
@@ -212,7 +212,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
               attemptedProviders
             });
           };
-          
+
           img.onerror = () => {
             console.error("Erro ao pré-carregar imagem - URL inválida ou inacessível:", imageUrl);
             // Fallback to backup image if preloading fails
@@ -222,9 +222,9 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
               isBackup: true 
             });
           };
-          
+
           img.src = validImageUrl;
-          
+
           // Timeout para não ficar esperando indefinidamente
           setTimeout(() => {
             if (!img.complete) {
@@ -303,29 +303,29 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
             console.warn('Dados não encontrados no cache para atualização');
             return oldData;
           }
-          
+
           if (!oldData.chapters || !Array.isArray(oldData.chapters)) {
             console.warn('Capítulos não encontrados no cache ou formato inválido:', oldData);
             return oldData;
           }
-          
+
           if (chapterIndex < 0 || chapterIndex >= oldData.chapters.length) {
             console.warn(`Índice de capítulo inválido: ${chapterIndex}, total de capítulos: ${oldData.chapters.length}`);
             return oldData;
           }
-          
+
           // Criar uma cópia profunda dos dados
           const updatedData = JSON.parse(JSON.stringify(oldData));
           const updatedChapters = updatedData.chapters;
-          
+
           // Atualizar o capítulo específico
           updatedChapters[chapterIndex] = {
             ...updatedChapters[chapterIndex],
             imageUrl: processedUrl
           };
-          
+
           console.log(`Cache atualizado para o capítulo ${chapterIndex}:`, processedUrl);
-          
+
           return {
             ...updatedData,
             chapters: updatedChapters
@@ -501,7 +501,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
       ageGroup: story?.ageGroup,
       storyId: storyId
     };
-    
+
     // Se um provedor preferido foi especificado, incluí-lo nas opções
     if (preferredProvider) {
       options.forceProvider = preferredProvider;
@@ -611,7 +611,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
                       onError={(e) => {
                         console.error("Erro ao carregar imagem:", currentChapterContent.imageUrl);
                         const isBackupImage = currentChapterContent.imageUrl?.includes('placehold.co') || false;
-                        
+
                         if (isBackupImage) {
                           // Já estamos usando uma imagem de backup, manter
                           e.currentTarget.src = 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
@@ -621,13 +621,13 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
                           if (!e.currentTarget.dataset.retried) {
                             console.log("Tentando regenerar a imagem que falhou...");
                             e.currentTarget.dataset.retried = "true";
-                            
+
                             // Timeout para evitar recarregamento imediato
                             setTimeout(() => {
                               // Tentar regenerar
                               generateCurrentChapterImage();
                             }, 500);
-                            
+
                             // Enquanto isso, mostrar imagem de fallback
                             e.currentTarget.src = 'https://placehold.co/600x400/e6f7ff/0066cc?text=Tentando+novamente...';
                           } else {
@@ -703,7 +703,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           </Button>
 
           {currentChapter === chapters.length - 1 ? (
-            <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-md font-medium" asChild>
+            <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:fromblue-600 hover:to-purple-600 text-white shadow-md font-medium" asChild>
               <Link href="/stories">
                 Concluir Leitura ✨
               </Link>
