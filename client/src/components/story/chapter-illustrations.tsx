@@ -51,14 +51,36 @@ const ChapterIllustrations = ({
 
   // Utilidade para garantir que temos uma URL de imagem válida
   const ensureValidImageUrl = (imageUrl: any): string => {
+    if (!imageUrl) {
+      console.warn('URL de imagem vazia ou nula');
+      return '';
+    }
+    
     if (typeof imageUrl === 'string') {
-      return imageUrl;
+      // Se é uma string, validar se parece uma URL
+      if (imageUrl.startsWith('http')) {
+        return imageUrl;
+      } else {
+        console.warn('URL de imagem inválida (não começa com http):', imageUrl);
+        return '';
+      }
     } else if (imageUrl && typeof imageUrl === 'object') {
       // Tentar extrair a URL do objeto
-      console.log('Objeto de imagem encontrado:', imageUrl);
-      // @ts-ignore
-      return imageUrl.url || imageUrl.imageUrl || imageUrl.src || '';
+      console.log('Objeto de imagem encontrado:', JSON.stringify(imageUrl, null, 2));
+      
+      // @ts-ignore - Tentar várias propriedades comuns onde a URL pode estar
+      const extractedUrl = imageUrl.url || imageUrl.imageUrl || imageUrl.src || imageUrl.uri || 
+                          (imageUrl.data && imageUrl.data.imageUrl) || '';
+      
+      if (extractedUrl && typeof extractedUrl === 'string' && extractedUrl.startsWith('http')) {
+        return extractedUrl;
+      } else {
+        console.warn('URL extraída do objeto é inválida:', extractedUrl);
+        return '';
+      }
     }
+    
+    console.warn('Formato de imageUrl desconhecido:', typeof imageUrl);
     return '';
   };
 

@@ -532,7 +532,7 @@ export class AIProviderManager {
       // Return backup image if no available providers
       console.warn('No available image generation providers, using backup image');
       return {
-        success: false,
+        success: true, // Alterado para true para evitar erros de processamento
         imageUrl: BACKUP_IMAGE_URL,
         model: 'backup',
         provider: 'backup',

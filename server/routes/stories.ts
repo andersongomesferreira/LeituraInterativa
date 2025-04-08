@@ -293,3 +293,72 @@ router.delete('/:id', isAuthenticated, hasStoryAccess, async (req: Request, res:
 });
 
 export default router; 
+
+// Rota de diagnóstico para geração de imagens
+router.get('/test-image-generation', async (req, res) => {
+  try {
+    const prompt = "Um gato laranja brincando com um novelo de lã em um estilo cartoon colorido";
+    
+    // Testar todos os provedores disponíveis
+    const providers = ["openai", "huggingface", "stability", "replicate", "getimg", "lexica"];
+    const results = {};
+    
+    for (const provider of providers) {
+      try {
+        console.log(`Testando provedor de imagem: ${provider}`);
+        const result = await aiService.generateImage(prompt, {
+          provider,
+          style: "cartoon",
+          mode: "standard"
+        });
+        
+        results[provider] = {
+          success: !!result.imageUrl,
+          imageUrl: result.imageUrl,
+          error: result.error,
+          isBackup: result.isBackup || false
+        };
+        
+        console.log(`Resultado do provedor ${provider}:`, 
+          result.success ? "Sucesso" : "Falha", 
+          result.isBackup ? "(usando backup)" : "");
+          
+      } catch (err) {
+        console.error(`Erro ao testar provedor ${provider}:`, err);
+        results[provider] = {
+          success: false,
+          error: err.message || String(err)
+        };
+      }
+    }
+    
+    // Teste geral com o provedor padrão
+    console.log("Testando geração com provedor padrão");
+    const defaultResult = await aiService.generateImage(prompt, {
+      style: "cartoon",
+      mode: "standard"
+    });
+    
+    results["default"] = {
+      success: !!defaultResult.imageUrl,
+      imageUrl: defaultResult.imageUrl,
+      error: defaultResult.error,
+      isBackup: defaultResult.isBackup || false
+    };
+    
+    res.json({
+      results,
+      systemStatus: {
+        availableProviders: providers,
+        defaultProvider: aiService.getDefaultImageProvider()
+      }
+    });
+  } catch (error) {
+    console.error("Erro no teste de geração de imagens:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao executar teste de geração de imagens",
+      error: error.message || String(error)
+    });
+  }
+});

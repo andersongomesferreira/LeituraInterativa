@@ -102,16 +102,27 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           imageUrl = response;
         } else if (typeof response === 'object') {
           imageUrl = response.imageUrl || response.url || 
-                    (response.success && response.data?.imageUrl);
+                    (response.success && response.data?.imageUrl) ||
+                    (response.data && response.data.imageUrl);
+          
+          // Log detalhado da resposta para debug
+          console.log("Resposta detalhada da API de imagens:", JSON.stringify(response, null, 2));
+          
+          // Se temos isBackup=true na resposta, é uma imagem de fallback
+          if (response.isBackup) {
+            console.log("Imagem de backup detectada:", imageUrl);
+          }
         }
 
         if (!imageUrl) {
+          console.error("URL da imagem não encontrada na resposta:", response);
           throw new Error("URL da imagem não encontrada na resposta");
         }
 
         // Verificar se a URL é válida
         const validImageUrl = imageUrl.startsWith('http') ? imageUrl : null;
         if (!validImageUrl) {
+          console.error("URL da imagem inválida:", imageUrl);
           throw new Error("URL da imagem inválida");
         }
 
