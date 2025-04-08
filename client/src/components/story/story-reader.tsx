@@ -33,8 +33,21 @@ const generateCurrentChapterImage = async () => {
     if (typeof response === 'string') {
       imageUrl = response;
     } else if (typeof response === 'object') {
+      // Tratamento mais robusto para diferentes formatos de resposta
       imageUrl = response.imageUrl || response.url || 
-                (response.success && response.data?.imageUrl);
+                (response.success && response.data?.imageUrl) || 
+                (response.result && response.result.imageUrl);
+      
+      // Log detalhado para depuração
+      console.log('Objeto de resposta recebido:', response);
+      console.log('URL de imagem extraída:', imageUrl);
+      
+      // Verificar se a URL é um objeto em vez de string (problema comum)
+      if (imageUrl && typeof imageUrl === 'object') {
+        console.log('URL de imagem é um objeto:', imageUrl);
+        // @ts-ignore
+        imageUrl = imageUrl.url || imageUrl.imageUrl || imageUrl.src || '';
+      }
     }
 
     if (imageUrl) {

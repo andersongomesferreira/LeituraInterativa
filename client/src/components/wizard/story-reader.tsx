@@ -133,18 +133,28 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
       }
     },
     onSuccess: ({ imageUrl, chapterIndex }) => {
+      // Verificar se imageUrl é válida
+      if (!imageUrl) {
+        console.error('URL de imagem inválida recebida:', imageUrl);
+        return;
+      }
+      
+      // Processar a URL da imagem para garantir formato correto
+      let processedUrl = imageUrl;
+      
       // Adicionar timestamp à URL da imagem para evitar cache
-      const timestampedUrl = imageUrl.includes('?') ? 
-        `${imageUrl}&t=${Date.now()}` : 
-        `${imageUrl}?t=${Date.now()}`;
+      processedUrl = processedUrl.includes('?') ? 
+        `${processedUrl}&t=${Date.now()}` : 
+        `${processedUrl}?t=${Date.now()}`;
 
       // Verificar se a URL tem extensão de imagem
-      if (!timestampedUrl.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i)) {
+      if (!processedUrl.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i)) {
         console.log('URL sem extensão de imagem, adicionando parâmetro content-type');
-        imageUrl = timestampedUrl + '&content-type=image/png';
-      } else {
-        imageUrl = timestampedUrl;
+        processedUrl += '&content-type=image/png';
       }
+      
+      // Log da URL processada
+      console.log('URL de imagem processada:', processedUrl);
 
 
       // Atualizar o cache do TanStack Query para incluir a nova URL da imagem
@@ -153,7 +163,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           const updatedChapters = [...oldData.chapters];
           updatedChapters[chapterIndex] = {
             ...updatedChapters[chapterIndex],
-            imageUrl: imageUrl
+            imageUrl: processedUrl
           };
 
           return {
