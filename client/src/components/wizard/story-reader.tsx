@@ -62,21 +62,31 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
     enabled: !!story,
   });
 
+  interface ChapterImageParams {
+    chapterIndex: number, 
+    chapterTitle: string, 
+    chapterContent: string,
+    characterNames: string[],
+    options?: {
+      style?: string,
+      mood?: string,
+      ageGroup?: string,
+      storyId?: number,
+      forceProvider?: string
+    }
+  }
+  
+  interface ChapterImageResult {
+    imageUrl: string;
+    chapterIndex: number;
+    isBackup?: boolean;
+    attemptedProviders?: string[];
+    error?: string;
+  }
+  
   // Mutation para gerar ilustração para um capítulo
-  const generateImageMutation = useMutation({
-    mutationFn: async ({ chapterIndex, chapterTitle, chapterContent, characterNames, options }: { 
-      chapterIndex: number, 
-      chapterTitle: string, 
-      chapterContent: string,
-      characterNames: string[],
-      options?: {
-        style?: string,
-        mood?: string,
-        ageGroup?: string,
-        storyId?: number,
-        forceProvider?: string
-      }
-    }) => {
+  const generateImageMutation = useMutation<ChapterImageResult, Error, ChapterImageParams>({
+    mutationFn: async ({ chapterIndex, chapterTitle, chapterContent, characterNames, options }: ChapterImageParams) => {
       setImageGenerating(true);
 
       try {
@@ -89,7 +99,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           mood: "adventure",
           ageGroup: story?.ageGroup,
           storyId: storyId,
-          forceProvider: "huggingface" // Definir HuggingFace como provedor preferido
+          forceProvider: "getimg" // Mudar para GetImg.ai que é mais confiável
         };
 
         console.log("Opções de geração:", imageOptions);
@@ -102,87 +112,71 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         };
 
         console.log("Enviando requisição para API de geração de imagem:", payload);
-
         console.log("Preparando payload para requisição:", JSON.stringify(payload, null, 2));
         
-        // Usar apiRequest para ter um tratamento mais consistente
-        const response = await apiRequest("POST", "/api/stories/generateChapterImage", payload);
+        // Usar fetch diretamente como na área administrativa
+        const response = await fetch('/api/stories/generateChapterImage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          credentials: 'include'
+        });
         
-        console.log("Resposta da API de geração de imagem:", JSON.stringify(response, null, 2));
+        // Capturar o texto bruto da resposta
+        const responseText = await response.text();
+        console.log('Resposta bruta da API:', responseText.substring(0, 500));
         
-        // Verificação adicional para garantir que a resposta contenha os dados necessários
-        if (!response || (response.success === false && !response.imageUrl)) {
-          console.error('Resposta indica falha:', response);
-          throw new Error('Falha na geração de imagem: ' + (response.message || 'Erro desconhecido'));
+        // Tentar converter a resposta em JSON
+        let jsonResponse;
+        try {
+          jsonResponse = JSON.parse(responseText);
+          console.log('Resposta JSON processada:', jsonResponse);
+        } catch (e) {
+          console.error('Falha ao analisar JSON:', e);
+          throw new Error('Resposta do servidor não é um JSON válido');
+        }
+        
+        // Verificação para garantir que a resposta seja válida
+        if (!jsonResponse || (jsonResponse.success === false && !jsonResponse.imageUrl)) {
+          console.error('Resposta indica falha:', jsonResponse);
+          throw new Error('Falha na geração de imagem: ' + (jsonResponse.message || 'Erro desconhecido'));
         }
 
-        // Extrair a URL da imagem
+        // Extrair a URL da imagem seguindo o mesmo padrão da área administrativa
         let imageUrl = null;
         let isBackupImage = false;
         let attemptedProviders: string[] = [];
         
-        console.log("Processando resposta para extrair URL da imagem...");
+        console.log("Extraindo URL da imagem da resposta...");
 
-        if (typeof response === 'string') {
-          console.log("Resposta é uma string, usando como URL diretamente:", response);
-          imageUrl = response;
-        } else if (typeof response === 'object') {
-          // Log completo para diagnóstico
-          console.log("Resposta completa do servidor:", JSON.stringify(response, null, 2));
-          
-          // Extrair a URL da imagem de várias localizações possíveis na resposta
-          if (response.imageUrl) {
-            console.log("URL encontrada em response.imageUrl:", response.imageUrl);
-            imageUrl = response.imageUrl;
-          } else if (response.url) {
-            console.log("URL encontrada em response.url:", response.url);
-            imageUrl = response.url;
-          } else if (response.success && response.data?.imageUrl) {
-            console.log("URL encontrada em response.data.imageUrl:", response.data.imageUrl);
-            imageUrl = response.data.imageUrl;
-          } else if (response.data && response.data.imageUrl) {
-            console.log("URL encontrada em response.data.imageUrl:", response.data.imageUrl);
-            imageUrl = response.data.imageUrl;
-          } else {
-            console.warn("URL da imagem não encontrada na resposta");
-          }
+        // Check if the response has imageUrl directly at top level (new format)
+        // or nested in a data property (old format) - igual ao padrão da área administrativa
+        if (jsonResponse.success) {
+          // Direct imageUrl (new format) or nested in data (old format)
+          imageUrl = jsonResponse.imageUrl || (jsonResponse.data && jsonResponse.data.imageUrl);
+          console.log('URL da imagem extraída:', imageUrl);
+        } else {
+          throw new Error(jsonResponse.message || 'Erro ao gerar imagem');
+        }
 
-          // Verificar se é imagem de backup
-          isBackupImage = !!response.isBackup;
-          if (isBackupImage) {
-            console.log("Resposta indica que esta é uma imagem de backup");
-          }
+        // Verificar se é imagem de backup
+        isBackupImage = !!jsonResponse.isBackup;
+        if (isBackupImage) {
+          console.log("Resposta indica que esta é uma imagem de backup");
+        }
 
-          // Extrair quais provedores foram tentados
-          if (response.attemptedProviders && Array.isArray(response.attemptedProviders)) {
-            attemptedProviders = response.attemptedProviders;
-            console.log("Provedores tentados:", attemptedProviders.join(', '));
-          }
-
-          if (isBackupImage) {
-            console.log("Imagem de backup detectada:", imageUrl);
-
-            // Se já tentamos com alguns provedores específicos, podemos tentar com outros
-            if (attemptedProviders.length > 0) {
-              const possibleAlternatives = ['openai', 'huggingface', 'stability', 'replicate'];
-              const remainingOptions = possibleAlternatives.filter(p => !attemptedProviders.includes(p));
-
-              if (remainingOptions.length > 0) {
-                console.log(`Tentativas automáticas falharam. Existem ${remainingOptions.length} provedores alternativos disponíveis: ${remainingOptions.join(', ')}`);
-              }
-            }
-          }
+        // Extrair quais provedores foram tentados
+        if (jsonResponse.attemptedProviders && Array.isArray(jsonResponse.attemptedProviders)) {
+          attemptedProviders = jsonResponse.attemptedProviders;
+          console.log("Provedores tentados:", attemptedProviders.join(', '));
         }
 
         // Se imageUrl for nulo ou inválido, usar imagem de backup
         if (!imageUrl || typeof imageUrl !== 'string') {
           console.warn("URL de imagem inválida ou não encontrada na resposta:", imageUrl);
           imageUrl = 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
-          isBackupImage = true;
-        }
-
-        // Se for imagem de backup, registramos isso
-        if (isBackupImage || imageUrl.includes('placehold.co')) {
           isBackupImage = true;
         }
 
@@ -193,14 +187,26 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           throw new Error("URL da imagem inválida");
         }
 
+        // Adicionar timestamp à URL para evitar cache - como feito na área administrativa
+        const processedUrl = validImageUrl.includes('?') ? 
+          `${validImageUrl}&t=${Date.now()}` : 
+          `${validImageUrl}?t=${Date.now()}`;
+          
+        // Adicionar content-type se necessário
+        const finalUrl = !processedUrl.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i) 
+          ? `${processedUrl}&content-type=image/png` 
+          : processedUrl;
+          
+        console.log('URL final processada:', finalUrl);
+
         // Pré-carregar a imagem com verificação de erros
         return new Promise((resolve) => {
           const img = new window.Image();
 
           img.onload = () => {
-            console.log("Imagem pré-carregada com sucesso:", imageUrl);
+            console.log("Imagem pré-carregada com sucesso:", finalUrl);
             resolve({ 
-              imageUrl, 
+              imageUrl: finalUrl, 
               chapterIndex, 
               isBackup: isBackupImage,
               attemptedProviders
@@ -208,7 +214,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
           };
 
           img.onerror = () => {
-            console.error("Erro ao pré-carregar imagem - URL inválida ou inacessível:", imageUrl);
+            console.error("Erro ao pré-carregar imagem - URL inválida ou inacessível:", finalUrl);
             // Fallback to backup image if preloading fails
             resolve({ 
               imageUrl: 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível', 
@@ -217,12 +223,12 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
             });
           };
 
-          img.src = validImageUrl;
+          img.src = finalUrl;
 
           // Timeout para não ficar esperando indefinidamente
           setTimeout(() => {
             if (!img.complete) {
-              console.warn("Timeout ao carregar imagem:", validImageUrl);
+              console.warn("Timeout ao carregar imagem:", finalUrl);
               resolve({ 
                 imageUrl: 'https://placehold.co/600x400/FFDE59/333333?text=Tempo+excedido+ao+carregar', 
                 chapterIndex,
@@ -245,7 +251,8 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         setImageGenerating(false);
       }
     },
-    onSuccess: ({ imageUrl, chapterIndex }) => {
+    onSuccess: (data: ChapterImageResult) => {
+      const { imageUrl, chapterIndex } = data;
       // Verificar se imageUrl é válida
       if (!imageUrl) {
         console.error('URL de imagem inválida recebida:', imageUrl);
@@ -344,7 +351,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
   });
 
   // Mutation para gerar todas as ilustrações de uma história
-  const generateAllIllustrationsMutation = useMutation({
+  const generateAllIllustrationsMutation = useMutation<any, Error, void>({
     mutationFn: async () => {
       if (!story) throw new Error("História não disponível");
 
@@ -353,15 +360,48 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         description: "Estamos criando ilustrações para todos os capítulos. Isso pode levar alguns instantes.",
       });
 
-      const response = await apiRequest("POST", `/api/stories/${storyId}/generateIllustrations`, {
-        options: {
-          style: "cartoon",
-          mood: "adventure",
-          ageGroup: story.ageGroup
+      // Usar o mesmo método de fetch direto que funciona na área administrativa
+      try {
+        const requestData = {
+          options: {
+            style: "cartoon",
+            mood: "adventure",
+            ageGroup: story.ageGroup,
+            // Forçar o uso do provedor que sabemos que funciona
+            forceProvider: "getimg"
+          }
+        };
+        
+        console.log("Enviando requisição para gerar todas as ilustrações:", requestData);
+        
+        // Usar fetch direto em vez de apiRequest
+        const response = await fetch(`/api/stories/${storyId}/generateIllustrations`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestData),
+          credentials: 'include'
+        });
+        
+        // Capturar e processar a resposta bruta
+        const responseText = await response.text();
+        console.log("Resposta bruta da API (primeiros 500 caracteres):", responseText.substring(0, 500));
+        
+        // Tentar converter a resposta em JSON
+        let jsonResponse;
+        try {
+          jsonResponse = JSON.parse(responseText);
+          console.log("Resposta JSON processada:", jsonResponse);
+          return jsonResponse;
+        } catch (e) {
+          console.error("Falha ao analisar JSON:", e);
+          throw new Error("Resposta do servidor não é um JSON válido");
         }
-      });
-
-      return response as any;
+      } catch (error) {
+        console.error("Erro na solicitação para gerar todas as ilustrações:", error);
+        throw error instanceof Error ? error : new Error(String(error));
+      }
     },
     onSuccess: (response) => {
       // Atualizar o cache com os capítulos atualizados
@@ -402,7 +442,8 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
       const existingSession = sessions.find((s: any) => s.storyId === storyId);
 
       if (existingSession) {
-        return apiRequest("PATCH", `/api/reading-sessions/${existingSession.id}`, data);
+        // Mudar PATCH para PUT que é suportado pelo apiRequest
+        return apiRequest("PUT", `/api/reading-sessions/${existingSession.id}`, data);
       } else {
         return apiRequest("POST", "/api/reading-sessions", {
           childId,
@@ -485,7 +526,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
   };
 
   // Função para gerar ou regenerar a ilustração do capítulo atual
-  const generateCurrentChapterImage = (preferredProvider?: string) => {
+  const generateCurrentChapterImage = () => {
     if (!currentChapterContent) return;
 
     // Preparar opções de geração
@@ -493,14 +534,9 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
       style: "cartoon",
       mood: "adventure",
       ageGroup: story?.ageGroup,
-      storyId: storyId
+      storyId: storyId,
+      forceProvider: "getimg" // Sempre usar o GetImg.ai que temos certeza que funciona
     };
-
-    // Se um provedor preferido foi especificado, incluí-lo nas opções
-    if (preferredProvider) {
-      options.forceProvider = preferredProvider;
-      console.log(`Forçando geração com provedor: ${preferredProvider}`);
-    }
 
     generateImageMutation.mutate({
       chapterIndex: currentChapter,
@@ -637,7 +673,10 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
                     </div>
                     {!currentChapterContent.imageUrl?.includes('placehold.co') && (
                       <button 
-                        onClick={generateCurrentChapterImage}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          generateCurrentChapterImage();
+                        }}
                         className="absolute top-3 right-3 bg-white/70 hover:bg-white/90 backdrop-blur-sm p-1.5 rounded-full text-blue-600 transition-all"
                         title="Regenerar ilustração"
                       >
@@ -664,7 +703,10 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
                       variant="outline"
                       size="sm"
                       className="mt-2 border-blue-300 text-blue-600 hover:bg-blue-50"
-                      onClick={generateCurrentChapterImage}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        generateCurrentChapterImage();
+                      }}
                     >
                       <RefreshCw className="h-3 w-3 mr-1" />
                       Ilustrar agora
