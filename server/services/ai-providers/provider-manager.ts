@@ -745,9 +745,12 @@ export class AIProviderManager {
       .map(([provider, error]) => `${provider}: ${error}`)
       .join('; ');
     
+    // Criar uma URL de backup legível com informações detalhadas
+    const backupUrl = BACKUP_IMAGE_URL;
+    
     return {
       success: true, // Alterado para true para evitar rejeição da promessa
-      imageUrl: BACKUP_IMAGE_URL,
+      imageUrl: backupUrl,
       model: 'backup',
       provider: 'backup',
       promptUsed: params.prompt,

@@ -102,10 +102,29 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
 
         console.log("Enviando requisição para API de geração de imagem:", payload);
 
-        // Usar a rota existente que restauramos para compatibilidade
-        const response = await apiRequest("POST", "/api/stories/generateChapterImage", payload);
+        // Usar fetch diretamente para ter acesso à resposta completa
+        const rawResponse = await fetch('/api/stories/generateChapterImage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          credentials: 'include'
+        });
 
-        console.log("Resposta da API de geração de imagem:", response);
+        // Capturar o texto da resposta para debug
+        const responseText = await rawResponse.text();
+        console.log('Resposta bruta da API:', responseText);
+
+        // Tentar converter a resposta em JSON
+        let response;
+        try {
+          response = JSON.parse(responseText);
+          console.log("Resposta da API de geração de imagem (parseada):", response);
+        } catch (e) {
+          console.error('Falha ao converter resposta para JSON:', e);
+          throw new Error('Resposta inválida do servidor: ' + responseText.substring(0, 200));
+        }
 
         // Extrair a URL da imagem
         let imageUrl = null;
@@ -115,7 +134,9 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         if (typeof response === 'string') {
           imageUrl = response;
         } else if (typeof response === 'object') {
-          imageUrl = response.imageUrl || response.url || 
+          // Extrair a URL da imagem de várias localizações possíveis na resposta
+          imageUrl = response.imageUrl || 
+                    response.url || 
                     (response.success && response.data?.imageUrl) ||
                     (response.data && response.data.imageUrl);
 
@@ -135,25 +156,23 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
             console.log("Provedores tentados:", attemptedProviders.join(', '));
             
             // Se já tentamos com alguns provedores específicos, podemos tentar com outros
-            // Esta lógica só será acionada se recebermos uma imagem de backup
             if (attemptedProviders.length > 0) {
               const possibleAlternatives = ['openai', 'huggingface', 'stability', 'replicate'];
               const remainingOptions = possibleAlternatives.filter(p => !attemptedProviders.includes(p));
               
               if (remainingOptions.length > 0) {
                 console.log(`Tentativas automáticas falharam. Existem ${remainingOptions.length} provedores alternativos disponíveis.`);
-                // Não tentamos automaticamente para evitar loop infinito, apenas sugerimos
-                // toast({
-                //   title: "Geração de imagem falhou",
-                //   description: `Tentaremos novamente com outro provedor em alguns segundos...`,
-                // });
               }
             }
           }
         }
 
-        // Use a backup image URL if imageUrl is invalid or null
-        imageUrl = imageUrl || 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
+        // Se imageUrl for nulo ou inválido, usar imagem de backup
+        if (!imageUrl || typeof imageUrl !== 'string') {
+          console.warn("URL de imagem inválida ou não encontrada na resposta:", imageUrl);
+          imageUrl = 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
+          isBackupImage = true;
+        }
         
         // Se for imagem de backup, registramos isso
         if (isBackupImage || imageUrl.includes('placehold.co')) {
@@ -238,10 +257,16 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         processedUrl = processedUrl.url || processedUrl.imageUrl || processedUrl.src || '';
       }
 
-      // Verificar se temos uma URL válida após a extração
-      if (!processedUrl || typeof processedUrl !== 'string') {
+      // Garantir que processedUrl seja uma string
+      if (typeof processedUrl !== 'string') {
+        console.error('URL não é uma string após processamento:', processedUrl);
+        processedUrl = String(processedUrl);
+      }
+
+      // Verificar novamente se temos uma URL válida após a extração
+      if (!processedUrl || processedUrl.trim() === '') {
         console.error('Não foi possível extrair uma URL válida:', processedUrl);
-        return;
+        processedUrl = 'https://placehold.co/600x400/FFDE59/333333?text=Imagem+temporariamente+indisponível';
       }
 
       // Adicionar timestamp à URL da imagem para evitar cache
@@ -258,25 +283,44 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
       // Log da URL processada
       console.log('URL de imagem processada:', processedUrl);
 
-
       // Atualizar o cache do TanStack Query para incluir a nova URL da imagem
-      queryClient.setQueryData([`/api/stories/${storyId}`], (oldData: any) => {
-        if (oldData && oldData.chapters && oldData.chapters[chapterIndex]) {
-          const updatedChapters = [...oldData.chapters];
+      try {
+        queryClient.setQueryData([`/api/stories/${storyId}`], (oldData: any) => {
+          if (!oldData) {
+            console.warn('Dados não encontrados no cache para atualização');
+            return oldData;
+          }
+          
+          if (!oldData.chapters || !Array.isArray(oldData.chapters)) {
+            console.warn('Capítulos não encontrados no cache ou formato inválido:', oldData);
+            return oldData;
+          }
+          
+          if (chapterIndex < 0 || chapterIndex >= oldData.chapters.length) {
+            console.warn(`Índice de capítulo inválido: ${chapterIndex}, total de capítulos: ${oldData.chapters.length}`);
+            return oldData;
+          }
+          
+          // Criar uma cópia profunda dos dados
+          const updatedData = JSON.parse(JSON.stringify(oldData));
+          const updatedChapters = updatedData.chapters;
+          
+          // Atualizar o capítulo específico
           updatedChapters[chapterIndex] = {
             ...updatedChapters[chapterIndex],
             imageUrl: processedUrl
           };
-
+          
           console.log(`Cache atualizado para o capítulo ${chapterIndex}:`, processedUrl);
-
+          
           return {
-            ...oldData,
+            ...updatedData,
             chapters: updatedChapters
           };
-        }
-        return oldData;
-      });
+        });
+      } catch (cacheError) {
+        console.error('Erro ao atualizar cache:', cacheError);
+      }
 
       toast({
         title: "Ilustração gerada",
