@@ -48,7 +48,7 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "kill $(lsof -t -i:5000) || true"
+args = "pkill -f \"node\" || true"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
