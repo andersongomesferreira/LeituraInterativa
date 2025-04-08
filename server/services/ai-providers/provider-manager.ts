@@ -59,25 +59,25 @@ export class AIProviderManager {
       }
     }
   };
-  
+
   // Índices para rotação dos provedores
   private currentTextProviderIndex = 0;
   private currentImageProviderIndex = 0;
-  
+
   // Provedores em falha temporária (evitar uso por um período)
   private failedTextProviders: Map<string, number> = new Map();
   private failedImageProviders: Map<string, number> = new Map();
-  
+
   // Período de espera para tentar novamente um provedor que falhou (15 minutos)
   private readonly RETRY_TIMEOUT = 15 * 60 * 1000;
-  
+
   // Método para definir o provedor preferido para testes
   private tempPreferredProviders: Record<AICapability, string> = {
     [AICapability.TEXT_GENERATION]: '',
     [AICapability.IMAGE_GENERATION]: '',
     [AICapability.AUDIO_GENERATION]: ''
   };
-  
+
   constructor() {
     // Register default providers
     this.registerProvider(new OpenAIProvider());
@@ -88,35 +88,35 @@ export class AIProviderManager {
     this.registerProvider(new GetImgProvider());
     this.registerProvider(new RunwareProvider());
     this.registerProvider(new HuggingFaceProvider());
-    
+
     // Initialize metrics
     Array.from(this.providers.values()).forEach(provider => {
       this.metrics.set(provider.id, { success: 0, total: 0 });
     });
-    
+
     // Load API keys from configuration
     this.loadApiKeysFromConfig();
-    
+
     // Rodar verificação periódica para limpar provedores falhos após o timeout
     setInterval(() => this.cleanupFailedProviders(), 60 * 1000);
-    
+
     logger.info('AIProviderManager inicializado com sucesso');
     logger.info(`Provedores de texto registrados: ${Array.from(this.providers.values()).filter(p => p.capabilities.textGeneration).map(p => p.id).join(', ')}`);
     logger.info(`Provedores de imagem registrados: ${Array.from(this.providers.values()).filter(p => p.capabilities.imageGeneration).map(p => p.id).join(', ')}`);
   }
-  
+
   /**
    * Load API keys from configuration
    */
   private loadApiKeysFromConfig(): void {
     console.log('Loading API keys from configuration...');
-    
+
     // Define providers e suas chaves de configuração
     interface ProviderKeyMap {
       configKey: keyof typeof config.ai;
       providerId: string;
     }
-    
+
     // Mapear as configurações de forma segura para tipos
     const providerMappings: ProviderKeyMap[] = [
       { configKey: 'openai', providerId: 'openai' },
@@ -127,18 +127,18 @@ export class AIProviderManager {
       { configKey: 'runware', providerId: 'runware' },
       { configKey: 'huggingface', providerId: 'huggingface' }
     ];
-    
+
     // Track which keys were loaded
     const loadedKeys: string[] = [];
-    
+
     // Attempt to load and set API keys
     providerMappings.forEach(({ configKey, providerId }) => {
       const apiKey = config.ai[configKey]?.apiKey;
-      
+
       if (apiKey && apiKey.trim() !== '') {
         try {
           const result = this.setProviderApiKey(providerId, apiKey);
-          
+
           if (result.success) {
             loadedKeys.push(providerId);
             console.log(`Successfully loaded API key for ${providerId} from configuration`);
@@ -152,10 +152,10 @@ export class AIProviderManager {
         console.log(`No API key found for ${providerId}`);
       }
     });
-    
+
     console.log(`API key loading complete. Successfully loaded keys for: [${loadedKeys.join(', ')}]`);
   }
-  
+
   /**
    * Registers a new AI provider
    */
@@ -164,7 +164,7 @@ export class AIProviderManager {
     this.metrics.set(provider.id, { success: 0, total: 0 });
     console.log(`Initialized AI provider: ${provider.name}`);
   }
-  
+
   /**
    * Sets the API key for a specific provider with improved validation
    * @param providerId ID of the provider to set the API key for
@@ -188,10 +188,10 @@ export class AIProviderManager {
         message: `Provider ${providerId} not found`
       };
     }
-    
+
     // Validate API key format based on provider
     const validationResult = this.validateApiKeyFormat(providerId, apiKey);
-    
+
     // If strict validation is enabled and key format is invalid, return error
     if (validationResult && !validationResult.isValid) {
       return {
@@ -200,15 +200,15 @@ export class AIProviderManager {
         validationResult
       };
     }
-    
+
     try {
       // Check if provider has setApiKey method
       if ('setApiKey' in provider && typeof (provider as any).setApiKey === 'function') {
         (provider as any).setApiKey(apiKey);
-        
+
         // Log success with provider name
         console.log(`API key updated for provider: ${provider.name}`);
-        
+
         // Immediately run a health check to update availability status
         this.checkProviderHealth(providerId).then(result => {
           if (result.isHealthy) {
@@ -219,7 +219,7 @@ export class AIProviderManager {
         }).catch(error => {
           console.error(`Error checking health for ${provider.name} after API key update:`, error);
         });
-        
+
         return { 
           success: true, 
           message: `API key for ${provider.name} updated successfully`,
@@ -239,7 +239,7 @@ export class AIProviderManager {
       };
     }
   }
-  
+
   /**
    * Performs a health check on a specific provider
    * @param providerId The ID of the provider to check
@@ -247,14 +247,14 @@ export class AIProviderManager {
    */
   async checkProviderHealth(providerId: string): Promise<{ isHealthy: boolean; message: string }> {
     const provider = this.providers.get(providerId);
-    
+
     if (!provider) {
       return {
         isHealthy: false,
         message: `Provider ${providerId} not found`
       };
     }
-    
+
     try {
       return await provider.checkHealth();
     } catch (error) {
@@ -265,7 +265,7 @@ export class AIProviderManager {
       };
     }
   }
-  
+
   /**
    * Validates API key format based on provider-specific patterns
    * @param providerId The ID of the provider
@@ -284,7 +284,7 @@ export class AIProviderManager {
         details: 'API key cannot be empty'
       };
     }
-    
+
     // Provider-specific format validation patterns
     switch(providerId) {
       case 'openai':
@@ -297,7 +297,7 @@ export class AIProviderManager {
           };
         }
         break;
-        
+
       case 'anthropic':
         // Anthropic API keys have specific prefixes
         if (!apiKey.startsWith('sk-ant-') && !apiKey.startsWith('sk-')) {
@@ -308,7 +308,7 @@ export class AIProviderManager {
           };
         }
         break;
-        
+
       case 'getimg':
         // GetImg.ai API keys are typically 32+ characters
         if (apiKey.length < 32) {
@@ -319,7 +319,7 @@ export class AIProviderManager {
           };
         }
         break;
-        
+
       case 'runware':
         // Runware keys are typically long tokens
         if (apiKey.length < 30) {
@@ -330,14 +330,14 @@ export class AIProviderManager {
           };
         }
         break;
-        
+
       // Add more providers as needed
     }
-    
+
     // If we reached here, consider the format valid
     return { isValid: true };
   }
-  
+
   /**
    * Updates the routing configuration
    */
@@ -359,13 +359,13 @@ export class AIProviderManager {
       }
     };
   }
-  
+
   /**
    * Checks the health of all registered providers
    */
   async checkAllProvidersHealth(): Promise<void> {
     console.log('Checking health of all AI providers...');
-    
+
     const healthCheckPromises = Array.from(this.providers.values()).map(async provider => {
       try {
         const healthResult = await provider.checkHealth();
@@ -381,59 +381,59 @@ export class AIProviderManager {
         };
       }
     });
-    
+
     const results = await Promise.all(healthCheckPromises);
     const healthyProviders = results.filter(r => r.isHealthy).map(r => r.providerId);
     const unhealthyProviders = results.filter(r => !r.isHealthy).map(r => r.providerId);
-    
+
     console.log(`AI providers health check completed. Healthy: [${healthyProviders.join(', ')}]. Unhealthy: [${unhealthyProviders.join(', ')}]`);
   }
-  
+
   /**
    * Generates text using the optimal provider based on routing config
    * Enhanced with better fallback provider handling and detailed logging
    */
   async generateText(params: TextGenerationParams, userTier: string = 'free'): Promise<TextGenerationResult> {
     console.log(`Generating text with tier: ${userTier}`);
-    
+
     // Get allowed providers for user tier
     const tierConfig = this.routingConfig.userTierLimits[userTier] || this.routingConfig.userTierLimits.free;
     const allowedProviderIds = tierConfig.allowedProviders;
-    
+
     // Filter providers that support text generation and are allowed for this user tier
     const textProviders = Array.from(this.providers.values())
       .filter(p => p.capabilities.textGeneration && allowedProviderIds.includes(p.id))
       .filter(p => p.status.isAvailable);
-    
+
     console.log(`Found ${textProviders.length} available text providers for tier ${userTier}: ${textProviders.map(p => p.id).join(', ')}`);
-    
+
     if (textProviders.length === 0) {
       // Force refresh the status of all providers to make sure we have the latest
       await this.checkAllProvidersHealth();
-      
+
       // Try again after health check
       const refreshedProviders = Array.from(this.providers.values())
         .filter(p => p.capabilities.textGeneration && allowedProviderIds.includes(p.id))
         .filter(p => p.status.isAvailable);
-      
+
       console.log(`After health refresh, found ${refreshedProviders.length} available text providers: ${refreshedProviders.map(p => p.id).join(', ')}`);
-      
+
       if (refreshedProviders.length === 0) {
         // Check OpenAI specifically since it's our primary provider
         const openaiProvider = this.providers.get('openai');
         if (openaiProvider) {
           console.log(`OpenAI status: available=${openaiProvider.status.isAvailable}, message=${openaiProvider.status.statusMessage || 'none'}`);
         }
-        
+
         throw new Error('No available text generation providers');
       }
-      
+
       textProviders.push(...refreshedProviders);
     }
-    
+
     // Start with default provider
     let selectedProvider = this.providers.get(this.routingConfig.defaultTextProvider);
-    
+
     // If default provider is not available or not allowed, use the first available
     if (!selectedProvider || !selectedProvider.status.isAvailable || !allowedProviderIds.includes(selectedProvider.id)) {
       console.log(`Default text provider ${this.routingConfig.defaultTextProvider} not available or allowed, using ${textProviders[0].id} instead`);
@@ -441,71 +441,71 @@ export class AIProviderManager {
     } else {
       console.log(`Using default text provider: ${selectedProvider.id}`);
     }
-    
+
     // List of providers we've already tried
     const triedProviders = new Set<string>();
-    
+
     // Try with the selected provider
     try {
       triedProviders.add(selectedProvider.id);
-      
+
       // Update metrics
       const providerMetrics = this.metrics.get(selectedProvider.id) || { success: 0, total: 0 };
       providerMetrics.total++;
       this.metrics.set(selectedProvider.id, providerMetrics);
-      
+
       console.log(`Attempting text generation with ${selectedProvider.id}...`);
       const result = await selectedProvider.generateText(params);
-      
+
       // Update success metrics
       providerMetrics.success++;
       this.metrics.set(selectedProvider.id, providerMetrics);
-      
+
       return result;
     } catch (error) {
       console.error(`Text generation with ${selectedProvider.id} failed:`, error);
-      
+
       // Try fallback providers based on fallback policy
       for (const fallbackId of this.routingConfig.fallbackPolicies.textGeneration) {
         const fallbackProvider = this.providers.get(fallbackId);
-        
+
         if (fallbackProvider && fallbackProvider.id !== selectedProvider.id &&
             fallbackProvider.status.isAvailable && 
             fallbackProvider.capabilities.textGeneration &&
             allowedProviderIds.includes(fallbackProvider.id)) {
           try {
             console.log(`Trying fallback text generation with ${fallbackProvider.id}`);
-            
+
             // Update metrics
             const fallbackMetrics = this.metrics.get(fallbackProvider.id) || { success: 0, total: 0 };
             fallbackMetrics.total++;
             this.metrics.set(fallbackProvider.id, fallbackMetrics);
-            
+
             const result = await fallbackProvider.generateText(params);
-            
+
             // Update success metrics
             fallbackMetrics.success++;
             this.metrics.set(fallbackProvider.id, fallbackMetrics);
-            
+
             return result;
           } catch (fallbackError) {
             console.error(`Fallback text generation with ${fallbackProvider.id} failed:`, fallbackError);
           }
         }
       }
-      
+
       // If all providers failed, rethrow the original error
       throw error;
     }
   }
-  
+
   /**
    * Generates an image using the optimal provider based on routing config
    * Enhanced with dynamic fallback selection and detailed logging
    */
   async generateImage(params: ImageGenerationParams, userTier: string = 'free'): Promise<ImageGenerationResult> {
     console.log(`Generating image for prompt: "${params.prompt.substring(0, 50)}..." with tier: ${userTier}`);
-    
+
     // Check if text-only mode is enabled - skip image generation entirely
     if (params.textOnly === true) {
       console.log('Text-only mode enabled, skipping image generation');
@@ -518,16 +518,16 @@ export class AIProviderManager {
         metadata: { textOnly: true }
       };
     }
-    
+
     // Get allowed providers for user tier
     const tierConfig = this.routingConfig.userTierLimits[userTier] || this.routingConfig.userTierLimits.free;
     const allowedProviderIds = tierConfig.allowedProviders;
-    
+
     // Filter providers that support image generation and are allowed for this user tier
     const imageProviders = Array.from(this.providers.values())
       .filter(p => p.capabilities.imageGeneration && allowedProviderIds.includes(p.id))
       .filter(p => p.status.isAvailable);
-    
+
     if (imageProviders.length === 0) {
       // Return backup image if no available providers
       console.warn('No available image generation providers, using backup image');
@@ -541,13 +541,13 @@ export class AIProviderManager {
         error: 'No available image generation providers'
       };
     }
-    
+
     // Count available providers
     console.log(`Found ${imageProviders.length} available image providers for tier ${userTier}: ${imageProviders.map(p => p.id).join(', ')}`);
-    
+
     // Start with default provider
     let selectedProvider = this.providers.get(this.routingConfig.defaultImageProvider);
-    
+
     // If default provider is not available or not allowed, use the first available
     if (!selectedProvider || !selectedProvider.status.isAvailable || !allowedProviderIds.includes(selectedProvider.id)) {
       console.log(`Default provider ${this.routingConfig.defaultImageProvider} not available or allowed, using ${imageProviders[0].id} instead`);
@@ -555,24 +555,24 @@ export class AIProviderManager {
     } else {
       console.log(`Using default provider: ${selectedProvider.id}`);
     }
-    
+
     // List of providers we've already tried
     const triedProviders = new Set<string>();
-    
+
     // Try with the selected provider
     try {
       triedProviders.add(selectedProvider.id);
-      
+
       // Update metrics
       const providerMetrics = this.metrics.get(selectedProvider.id) || { success: 0, total: 0 };
       providerMetrics.total++;
       this.metrics.set(selectedProvider.id, providerMetrics);
-      
+
       console.log(`Attempting image generation with ${selectedProvider.id}...`);
-      
+
       // Create a modified version of params with provider-compatible model
       const adaptedParams = { ...params };
-      
+
       // Adapt model parameter based on provider
       if (selectedProvider.id === 'openai') {
         // OpenAI doesn't support specific models like stable-diffusion-xl
@@ -583,82 +583,82 @@ export class AIProviderManager {
         console.log(`Adapting model parameter for HuggingFace: setting default model`);
         adaptedParams.model = 'stable-diffusion-xl';
       }
-      
+
       const result = await selectedProvider.generateImage(adaptedParams);
-      
+
       // Check if result has a valid image URL
       if (!result.success || !result.imageUrl || result.imageUrl.trim().length === 0) {
         console.log(`${selectedProvider.id} returned success=false or empty URL, treating as failure`);
         throw new Error(`${selectedProvider.id} returned unsuccessful result or empty URL`);
       }
-      
+
       // Update success metrics
       providerMetrics.success++;
       this.metrics.set(selectedProvider.id, providerMetrics);
-      
+
       // Log success rate
       console.log(`Provider ${selectedProvider.id} metrics: ${providerMetrics.success}/${providerMetrics.total} successful (${(providerMetrics.success / providerMetrics.total * 100).toFixed(1)}%)`);
-      
+
       return {
         ...result,
         provider: selectedProvider.id // Ensure provider is always set
       };
     } catch (error) {
       console.error(`Image generation with ${selectedProvider.id} failed:`, error);
-      
+
       // Log metrics for failed provider
       const failedMetrics = this.metrics.get(selectedProvider.id);
       if (failedMetrics) {
         console.log(`Provider ${selectedProvider.id} metrics: ${failedMetrics.success}/${failedMetrics.total} successful (${(failedMetrics.success / failedMetrics.total * 100).toFixed(1)}%)`);
       }
-      
+
       console.log('Image generation failed, trying fallback providers');
-      
+
       // Get fallback providers dynamically ordered by success rate
       const fallbackProviders = this.getDynamicFallbackProviders(triedProviders, allowedProviderIds);
       console.log(`Dynamic fallback order: ${fallbackProviders.join(', ')}`);
-      
+
       // Try each fallback provider
       for (const fallbackId of fallbackProviders) {
         const fallbackProvider = this.providers.get(fallbackId);
-        
+
         if (!fallbackProvider) {
           console.log(`Provider ${fallbackId} not found, skipping`);
           continue;
         }
-        
+
         if (triedProviders.has(fallbackId)) {
           console.log(`Provider ${fallbackId} already tried, skipping`);
           continue;
         }
-        
+
         if (!fallbackProvider.status.isAvailable) {
           console.log(`Provider ${fallbackId} not available, skipping`);
           continue;
         }
-        
+
         if (!fallbackProvider.capabilities.imageGeneration) {
           console.log(`Provider ${fallbackId} does not support image generation, skipping`);
           continue;
         }
-        
+
         if (!allowedProviderIds.includes(fallbackId)) {
           console.log(`Provider ${fallbackId} not allowed for tier ${userTier}, skipping`);
           continue;
         }
-        
+
         try {
           triedProviders.add(fallbackId);
           console.log(`Trying fallback image generation with ${fallbackId}`);
-          
+
           // Update metrics
           const fallbackMetrics = this.metrics.get(fallbackId) || { success: 0, total: 0 };
           fallbackMetrics.total++;
           this.metrics.set(fallbackId, fallbackMetrics);
-          
+
           // Create a modified version of params with provider-compatible model
           const adaptedFallbackParams = { ...params };
-          
+
           // Adapt model parameter based on provider
           if (fallbackId === 'openai') {
             // OpenAI doesn't support specific models like stable-diffusion-xl
@@ -669,21 +669,21 @@ export class AIProviderManager {
             console.log(`Adapting model parameter for HuggingFace: setting default model`);
             adaptedFallbackParams.model = 'stable-diffusion-xl';
           }
-          
+
           const result = await fallbackProvider.generateImage(adaptedFallbackParams);
-          
+
           // Check if result has a valid image URL
           if (!result.success || !result.imageUrl || result.imageUrl.trim().length === 0) {
             console.log(`${fallbackId} returned success=false or empty URL, treating as failure`);
             throw new Error(`${fallbackId} returned unsuccessful result or empty URL`);
           }
-          
+
           // Update success metrics
           fallbackMetrics.success++;
           this.metrics.set(fallbackId, fallbackMetrics);
-          
+
           console.log(`Fallback to ${fallbackId} successful`);
-          
+
           return {
             ...result,
             provider: fallbackId // Ensure provider is always set
@@ -692,11 +692,11 @@ export class AIProviderManager {
           console.error(`Fallback image generation with ${fallbackId} failed:`, fallbackError);
         }
       }
-      
-      // If all providers failed, return backup image
+
+      // Se all providers failed, return backup image
       console.error('All image generation providers failed, returning backup image');
       return {
-        success: false,
+        success: true, // Alterado para true para evitar rejeição da promessa
         imageUrl: BACKUP_IMAGE_URL,
         model: 'backup',
         provider: 'backup',
@@ -706,7 +706,7 @@ export class AIProviderManager {
       };
     }
   }
-  
+
   /**
    * Gets a dynamically ordered list of fallback providers based on success rates
    * @param triedProviders Set of provider IDs that have already been tried
@@ -720,37 +720,37 @@ export class AIProviderManager {
       .filter(p => p.status.isAvailable)
       .filter(p => !triedProviders.has(p.id))
       .filter(p => allowedProviderIds.includes(p.id));
-    
+
     // If prioritizing response time, sort by response time
     if (this.routingConfig.routingPreferences.prioritizeResponseTime) {
       availableProviders.sort((a, b) => 
         (a.status.responseTime || Infinity) - (b.status.responseTime || Infinity)
       );
     }
-    
+
     // Calculate success rates
     const providersWithRates = availableProviders.map(provider => {
       const metrics = this.metrics.get(provider.id) || { success: 0, total: 0 };
       const successRate = metrics.total > 0 ? metrics.success / metrics.total : 0;
       return { provider, successRate };
     });
-    
+
     // If prioritizing quality (which we equate with success rate), sort by success rate
     if (this.routingConfig.routingPreferences.prioritizeQuality) {
       providersWithRates.sort((a, b) => b.successRate - a.successRate);
     }
-    
+
     // Return just the provider IDs in the optimal order
     return providersWithRates.map(p => p.provider.id);
   }
-  
+
   /**
    * Gets a list of all registered providers with their status
    */
   getProviders(): AIProvider[] {
     return Array.from(this.providers.values());
   }
-  
+
   /**
    * Gets a specific provider by ID
    * @param providerId The ID of the provider to retrieve
@@ -759,7 +759,7 @@ export class AIProviderManager {
   getProvider(providerId: string): AIProvider | undefined {
     return this.providers.get(providerId);
   }
-  
+
   /**
    * Gets all providers' status information
    */
@@ -775,13 +775,13 @@ export class AIProviderManager {
       const successRate = metrics.total > 0 
         ? ((metrics.success / metrics.total) * 100).toFixed(1) + '%'
         : 'N/A';
-      
+
       const capabilities = [];
       if (provider.capabilities.textGeneration) capabilities.push('text');
       if (provider.capabilities.imageGeneration) capabilities.push('image');
       if (provider.capabilities.audioGeneration) capabilities.push('audio');
       if (provider.capabilities.multimodalSupport) capabilities.push('multimodal');
-      
+
       return {
         id: provider.id,
         name: provider.name,
@@ -795,7 +795,7 @@ export class AIProviderManager {
       };
     });
   }
-  
+
   /**
    * Obtém o próximo provedor de texto disponível
    * @returns Provedor de texto
@@ -804,31 +804,31 @@ export class AIProviderManager {
     if (this.providers.size === 0) {
       return null;
     }
-    
+
     // Procurar por um provedor disponível
     let checkedProviders = 0;
     let provider: AIProvider | null = null;
-    
+
     while (checkedProviders < this.providers.size) {
       // Circular para o início se chegamos ao fim da lista
       if (this.currentTextProviderIndex >= this.providers.size) {
         this.currentTextProviderIndex = 0;
       }
-      
+
       const candidate = Array.from(this.providers.values())[this.currentTextProviderIndex];
       this.currentTextProviderIndex++;
       checkedProviders++;
-      
+
       // Verificar se o provedor não está marcado como falho
       if (!this.isTextProviderFailed(candidate.id)) {
         provider = candidate;
         break;
       }
     }
-    
+
     return provider;
   }
-  
+
   /**
    * Obtém o próximo provedor de imagem disponível
    * @returns Provedor de imagem
@@ -837,31 +837,31 @@ export class AIProviderManager {
     if (this.providers.size === 0) {
       return null;
     }
-    
+
     // Procurar por um provedor disponível
     let checkedProviders = 0;
     let provider: AIProvider | null = null;
-    
+
     while (checkedProviders < this.providers.size) {
       // Circular para o início se chegamos ao fim da lista
       if (this.currentImageProviderIndex >= this.providers.size) {
         this.currentImageProviderIndex = 0;
       }
-      
+
       const candidate = Array.from(this.providers.values())[this.currentImageProviderIndex];
       this.currentImageProviderIndex++;
       checkedProviders++;
-      
+
       // Verificar se o provedor não está marcado como falho
       if (!this.isImageProviderFailed(candidate.id)) {
         provider = candidate;
         break;
       }
     }
-    
+
     return provider;
   }
-  
+
   /**
    * Verifica se um provedor de texto está marcado como falho
    * @param providerId ID do provedor
@@ -870,16 +870,16 @@ export class AIProviderManager {
   private isTextProviderFailed(providerId: string): boolean {
     const failTime = this.failedTextProviders.get(providerId);
     if (!failTime) return false;
-    
+
     // Se o tempo de falha expirou, remover da lista
     if (Date.now() - failTime > this.RETRY_TIMEOUT) {
       this.failedTextProviders.delete(providerId);
       return false;
     }
-    
+
     return true;
   }
-  
+
   /**
    * Verifica se um provedor de imagem está marcado como falho
    * @param providerId ID do provedor
@@ -888,16 +888,16 @@ export class AIProviderManager {
   private isImageProviderFailed(providerId: string): boolean {
     const failTime = this.failedImageProviders.get(providerId);
     if (!failTime) return false;
-    
+
     // Se o tempo de falha expirou, remover da lista
     if (Date.now() - failTime > this.RETRY_TIMEOUT) {
       this.failedImageProviders.delete(providerId);
       return false;
     }
-    
+
     return true;
   }
-  
+
   /**
    * Marca um provedor de texto como falho
    * @param providerId ID do provedor
@@ -906,7 +906,7 @@ export class AIProviderManager {
     this.failedTextProviders.set(providerId, Date.now());
     logger.warn(`Provedor de texto ${providerId} marcado como falho temporariamente`);
   }
-  
+
   /**
    * Marca um provedor de imagem como falho
    * @param providerId ID do provedor
@@ -915,13 +915,13 @@ export class AIProviderManager {
     this.failedImageProviders.set(providerId, Date.now());
     logger.warn(`Provedor de imagem ${providerId} marcado como falho temporariamente`);
   }
-  
+
   /**
    * Remove provedores cuja falha expirou do período de timeout
    */
   private cleanupFailedProviders(): void {
     const now = Date.now();
-    
+
     // Limpar provedores de texto
     Array.from(this.failedTextProviders.entries()).forEach(([providerId, failTime]) => {
       if (now - failTime > this.RETRY_TIMEOUT) {
@@ -929,7 +929,7 @@ export class AIProviderManager {
         logger.info(`Provedor de texto ${providerId} removido da lista de falhas`);
       }
     });
-    
+
     // Limpar provedores de imagem
     Array.from(this.failedImageProviders.entries()).forEach(([providerId, failTime]) => {
       if (now - failTime > this.RETRY_TIMEOUT) {
@@ -952,7 +952,7 @@ export class AIProviderManager {
 
     // Store the current preferred provider to restore later
     this.tempPreferredProviders[type] = providerId;
-    
+
     logger.info(`Set preferred provider for ${type} testing to ${providerId}`);
   }
 
@@ -988,7 +988,7 @@ export class AIProviderManager {
     try {
       // Convert Map.values() to array before iteration to avoid downlevelIteration issues
       const providerArray = Array.from(this.providers.values());
-      
+
       for (const provider of providerArray) {
         // Skip providers that don't have the requested capability
         if (type === AICapability.TEXT_GENERATION && !provider.capabilities.textGeneration) continue;

@@ -150,8 +150,23 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         return;
       }
       
+      console.log('URL de imagem original recebida:', imageUrl);
+      
       // Processar a URL da imagem para garantir formato correto
       let processedUrl = imageUrl;
+      
+      // Se imageUrl é um objeto, extrair a URL real
+      if (typeof processedUrl === 'object') {
+        console.log('imageUrl é um objeto:', processedUrl);
+        // @ts-ignore - Tentar extrair a URL de várias propriedades possíveis
+        processedUrl = processedUrl.url || processedUrl.imageUrl || processedUrl.src || '';
+      }
+      
+      // Verificar se temos uma URL válida após a extração
+      if (!processedUrl || typeof processedUrl !== 'string') {
+        console.error('Não foi possível extrair uma URL válida:', processedUrl);
+        return;
+      }
       
       // Adicionar timestamp à URL da imagem para evitar cache
       processedUrl = processedUrl.includes('?') ? 
@@ -176,7 +191,9 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
             ...updatedChapters[chapterIndex],
             imageUrl: processedUrl
           };
-
+          
+          console.log(`Cache atualizado para o capítulo ${chapterIndex}:`, processedUrl);
+          
           return {
             ...oldData,
             chapters: updatedChapters

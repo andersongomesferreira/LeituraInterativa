@@ -206,6 +206,14 @@ const ChapterIllustrations = ({
         console.log(`[DEBUG] Tipo de imageUrl:`, typeof result.imageUrl);
         console.log(`[DEBUG] Conteúdo de imageUrl:`, result.imageUrl);
         
+        // Verificar se a resposta contém um objeto em vez de uma string URL
+        let imageUrlToUse = result.imageUrl;
+        if (typeof imageUrlToUse === 'object') {
+          console.log(`[DEBUG] imageUrl é um objeto, tentando extrair URL:`, imageUrlToUse);
+          // @ts-ignore - Extrair URL de diferentes propriedades possíveis
+          imageUrlToUse = imageUrlToUse.url || imageUrlToUse.imageUrl || imageUrlToUse.src || '';
+        }
+        
         // Determinar a mensagem de toast com base no sucesso
         const toastTitle = result.success 
           ? "Ilustração gerada com sucesso" 
@@ -222,7 +230,7 @@ const ChapterIllustrations = ({
         });
         
         // Usar a função utilitária para garantir uma URL válida
-        const imageUrlString = ensureValidImageUrl(result.imageUrl);
+        const imageUrlString = ensureValidImageUrl(imageUrlToUse);
         console.log(`[DEBUG] URL final após processamento:`, imageUrlString);
         
         // Atualizar o capítulo com a nova imagem, mesmo se for fallback
