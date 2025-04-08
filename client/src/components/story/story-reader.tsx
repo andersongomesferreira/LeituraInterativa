@@ -92,3 +92,20 @@ const generateCurrentChapterImage = async () => {
     setIsGeneratingImage(false);
   }
 };
+
+// ... other code ...
+
+{chapter.imageUrl && (
+      <div className="mx-auto my-6 w-full max-w-3xl rounded-xl overflow-hidden">
+        <img
+          src={chapter.imageUrl}
+          alt={`Ilustração para ${chapter.title}`}
+          className="w-full h-auto object-cover"
+          onError={(e) => {
+            console.error("Erro ao carregar imagem:", chapter.imageUrl);
+            e.currentTarget.src = 'https://placehold.co/600x400/FFDE59/333333?text=Ilustração+não+disponível';
+            e.currentTarget.alt = 'Ilustração não disponível';
+          }}
+        />
+      </div>
+    )}

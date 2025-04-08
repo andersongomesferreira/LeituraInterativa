@@ -95,7 +95,36 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
 
         console.log("Resposta da API de geração de imagem:", response);
 
-        return { response, chapterIndex };
+        // Extrair a URL da imagem
+        let imageUrl = null;
+
+        if (typeof response === 'string') {
+          imageUrl = response;
+        } else if (typeof response === 'object') {
+          imageUrl = response.imageUrl || response.url || 
+                    (response.success && response.data?.imageUrl);
+        }
+
+        if (!imageUrl) {
+          throw new Error("URL da imagem não encontrada na resposta");
+        }
+
+        // Verificar se a URL é válida
+        const validImageUrl = imageUrl.startsWith('http') ? imageUrl : null;
+        if (!validImageUrl) {
+          throw new Error("URL da imagem inválida");
+        }
+
+        // Pré-carregar a imagem com verificação de erros
+        const img = new window.Image();
+        img.onload = () => console.log("Imagem pré-carregada com sucesso:", imageUrl);
+        img.onerror = () => {
+          console.error("Erro ao pré-carregar imagem - URL inválida ou inacessível:", imageUrl);
+          throw new Error("Não foi possível carregar a imagem");
+        };
+        img.src = validImageUrl;
+
+        return { imageUrl, chapterIndex };
       } catch (error) {
         console.error("Erro ao gerar imagem:", error);
         throw error;
@@ -103,48 +132,43 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         setImageGenerating(false);
       }
     },
-    onSuccess: ({ response, chapterIndex }) => {
-      if (response && 'imageUrl' in response) {
-        // Adicionar timestamp à URL da imagem para evitar cache
-        let imageUrl = response.imageUrl;
-        const timestampedUrl = imageUrl.includes('?') ? 
-          `${imageUrl}&t=${Date.now()}` : 
-          `${imageUrl}?t=${Date.now()}`;
+    onSuccess: ({ imageUrl, chapterIndex }) => {
+      // Adicionar timestamp à URL da imagem para evitar cache
+      let timestampedUrl = imageUrl;
+      const timestampedUrl = imageUrl.includes('?') ? 
+        `${imageUrl}&t=${Date.now()}` : 
+        `${imageUrl}?t=${Date.now()}`;
 
-        // Verificar se a URL tem extensão de imagem
-        if (!timestampedUrl.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i)) {
-          console.log('URL sem extensão de imagem, adicionando parâmetro content-type');
-          imageUrl = timestampedUrl + '&content-type=image/png';
-        } else {
-          imageUrl = timestampedUrl;
-        }
-
-        // Pré-carregar a imagem
-        const img = new window.Image();
-        img.src = imageUrl;
-
-        // Atualizar o cache do TanStack Query para incluir a nova URL da imagem
-        queryClient.setQueryData([`/api/stories/${storyId}`], (oldData: any) => {
-          if (oldData && oldData.chapters && oldData.chapters[chapterIndex]) {
-            const updatedChapters = [...oldData.chapters];
-            updatedChapters[chapterIndex] = {
-              ...updatedChapters[chapterIndex],
-              imageUrl: imageUrl
-            };
-
-            return {
-              ...oldData,
-              chapters: updatedChapters
-            };
-          }
-          return oldData;
-        });
-
-        toast({
-          title: "Ilustração gerada",
-          description: "A ilustração para este capítulo foi criada com sucesso!",
-        });
+      // Verificar se a URL tem extensão de imagem
+      if (!timestampedUrl.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i)) {
+        console.log('URL sem extensão de imagem, adicionando parâmetro content-type');
+        imageUrl = timestampedUrl + '&content-type=image/png';
+      } else {
+        imageUrl = timestampedUrl;
       }
+
+
+      // Atualizar o cache do TanStack Query para incluir a nova URL da imagem
+      queryClient.setQueryData([`/api/stories/${storyId}`], (oldData: any) => {
+        if (oldData && oldData.chapters && oldData.chapters[chapterIndex]) {
+          const updatedChapters = [...oldData.chapters];
+          updatedChapters[chapterIndex] = {
+            ...updatedChapters[chapterIndex],
+            imageUrl: imageUrl
+          };
+
+          return {
+            ...oldData,
+            chapters: updatedChapters
+          };
+        }
+        return oldData;
+      });
+
+      toast({
+        title: "Ilustração gerada",
+        description: "A ilustração para este capítulo foi criada com sucesso!",
+      });
     },
     onError: (error: any) => {
       toast({
@@ -399,6 +423,11 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
                       src={currentChapterContent.imageUrl} 
                       alt={`Ilustração para ${currentChapterContent.title}`}
                       className="w-full h-auto object-cover rounded-sm"
+                      onError={(e) => {
+                        console.error("Erro ao carregar imagem:", currentChapterContent.imageUrl);
+                        e.currentTarget.src = 'https://placehold.co/600x400/FFDE59/333333?text=Ilustração+não+disponível';
+                        e.currentTarget.alt = 'Ilustração não disponível';
+                      }}
                     />
                     <div className="absolute bottom-3 right-3 bg-white/60 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium text-blue-600">
                       Ilustração do capítulo
