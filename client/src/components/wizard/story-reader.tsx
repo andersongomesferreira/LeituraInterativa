@@ -120,7 +120,7 @@ const StoryReader = ({ storyId, childId, textOnly: propTextOnly = false }: Story
         }
 
         // Pré-carregar a imagem
-        const img = new Image();
+        const img = new window.Image();
         img.src = imageUrl;
 
         // Atualizar o cache do TanStack Query para incluir a nova URL da imagem

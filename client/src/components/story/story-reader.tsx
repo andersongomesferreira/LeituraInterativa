@@ -25,7 +25,7 @@ const generateCurrentChapterImage = async () => {
       }
     );
 
-    console.log("Resposta da geração de imagem:", response);
+    console.log(`Resposta da geração de imagem:`, response);
 
     // Extrair a URL da imagem de diferentes formatos de resposta
     let imageUrl = null;
@@ -38,6 +38,14 @@ const generateCurrentChapterImage = async () => {
     }
 
     if (imageUrl) {
+      try {
+        // Usar window.Image em vez de Image diretamente
+        const img = new window.Image();
+        img.src = imageUrl;
+        console.log("Pré-carregando imagem:", imageUrl);
+      } catch (imgError) {
+        console.error("Erro ao pré-carregar imagem:", imgError);
+      }
       const updatedChapters = [...chapters];
       updatedChapters[currentChapter] = {
         ...updatedChapters[currentChapter],
